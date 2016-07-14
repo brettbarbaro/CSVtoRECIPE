@@ -1,6 +1,6 @@
 """
 Created on Tuesday, July 12, 2016
-@authors: Jared Truong
+@author: Jared Truong
 """
 # all information taken from Stanford websites on Mycoplasm genitalium
 # http://www.wholecellsimdb.org/simulation_batch/1
@@ -247,4 +247,93 @@ def multipleJ5ToXls(listOfFiles, numberOfIterations, fileName, frame=0, ignore_n
     book.save(name)
     book.save(TemporaryFile())
 
-# 20160713 work in progress...
+def doSum(itemData, rawData):
+    name = ''
+    for row, list in enumerate(rawData):
+        for row, col in enumerate(list):
+            if row == 0:
+                name = col
+            if row == 1:
+                if (itemData.has_key(name)):
+                    itemData[name] = itemData[name] + int(col)
+                else:
+                    itemData[name] = int(col)
+
+def writeSheet(rawData, hashData, sheet, count):
+    i = 0
+    for row, list in enumerate(rawData):
+        for row, col in enumerate(list):
+            if row == 0:
+                sheet.write(i, 0, col)
+                sheet.write(i, 1, hashData[col])
+                sheet.write(i, 2, count)
+                sheet.write(i, 3, hashData[col] / count)
+                i += 1
+
+def multipleJ5ToXlsWithAverages(listOfFiles, numberOfIterations, fileName, frame=0, ignore_null=False):
+    cytosolData = {}
+    dnaData = {}
+    extracellularSpaceData = {}
+    membraneData = {}
+    terminalOrganelleCytosolData = {}
+    terminalOrganelleMembraneData = {}
+    count = 0
+    for i in range(numberOfIterations):
+        rawData = getRawData(listOfFiles[i], frame, ignore_null)
+        doSum(cytosolData, rawData[0])
+        doSum(dnaData, rawData[1])
+        doSum(extracellularSpaceData, rawData[2])
+        doSum(membraneData, rawData[3])
+        doSum(terminalOrganelleCytosolData, rawData[4])
+        doSum(terminalOrganelleMembraneData, rawData[5])
+        count += 1
+    book = xlwt.Workbook()
+    sheet1 = book.add_sheet('cytosolData', cell_overwrite_ok=True)
+    sheet2 = book.add_sheet('dnaData', cell_overwrite_ok=True)
+    sheet3 = book.add_sheet('extracellularSpaceData', cell_overwrite_ok=True)
+    sheet4 = book.add_sheet('membraneData', cell_overwrite_ok=True)
+    sheet5 = book.add_sheet('terminalOrganelleCytosolData', cell_overwrite_ok=True)
+    sheet6 = book.add_sheet('terminalOrganelleMembraneData', cell_overwrite_ok=True)
+    writeSheet(rawData[0], cytosolData, sheet1, count)
+    writeSheet(rawData[1], dnaData, sheet2, count)
+    writeSheet(rawData[2], extracellularSpaceData, sheet3, count)
+    writeSheet(rawData[3], membraneData, sheet4, count)
+    writeSheet(rawData[4], terminalOrganelleCytosolData, sheet5, count)
+    writeSheet(rawData[5], terminalOrganelleMembraneData, sheet6, count)
+    name = fileName + ".xls"
+    book.save(name)
+    book.save(TemporaryFile())
+
+def writeFileCsv(rawData, hashData, fileName, count):
+    file = open(fileName + '_avg_count.csv', 'w')
+    for row, list in enumerate(rawData):
+        for row, col in enumerate(list):
+            if row == 0:
+                file.write(col + ',' + str(hashData[col] / count) + '\n')
+    file.close()
+
+def multipleJ5ToCsvWithAverages(listOfFiles, numberOfIterations, fileName, frame=0, ignore_null=False):
+    cytosolData = {}
+    dnaData = {}
+    extracellularSpaceData = {}
+    membraneData = {}
+    terminalOrganelleCytosolData = {}
+    terminalOrganelleMembraneData = {}
+    count = 0
+    for i in range(numberOfIterations):
+        rawData = getRawData(listOfFiles[i], frame, ignore_null)
+        doSum(cytosolData, rawData[0])
+        doSum(dnaData, rawData[1])
+        doSum(extracellularSpaceData, rawData[2])
+        doSum(membraneData, rawData[3])
+        doSum(terminalOrganelleCytosolData, rawData[4])
+        doSum(terminalOrganelleMembraneData, rawData[5])
+        count += 1
+    writeFileCsv(rawData[0], cytosolData, 'cytosolData', count)
+    writeFileCsv(rawData[1], dnaData, 'dnaData', count)
+    writeFileCsv(rawData[2], extracellularSpaceData, 'extracellularSpaceData', count)
+    writeFileCsv(rawData[3], membraneData, 'membraneData', count)
+    writeFileCsv(rawData[4], terminalOrganelleCytosolData, 'terminalOrganelleCytosolData', count)
+    writeFileCsv(rawData[5], terminalOrganelleMembraneData, 'terminalOrganelleMembraneData', count)
+
+# 20160714 work in progress...
