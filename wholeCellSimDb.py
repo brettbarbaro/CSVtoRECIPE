@@ -12,6 +12,7 @@ Created on Tuesday, July 12, 2016
 import h5py
 import numpy as np
 import xlwt
+import math
 from tempfile import TemporaryFile
 
 # given h5 file location, frame, and ignore_null boolean (ignore_null declares whether or no to ignore data that is 0)
@@ -26,10 +27,10 @@ def getRawData(filename, frame=0, ignore_null=False):
     for i in range(6):
         if ignore_null:
             names = labelComplex[dataComplex[:, i, frame] > 0]
-            counts = dataComplex[:, i, frame][dataComplex[:, i, frame] > 0]
+            counts = dataComplex[:len(names), i, frame][dataComplex[:, i, frame] > 0]
         else:
             names = labelComplex
-            counts = dataComplex[:, i, frame]
+            counts = dataComplex[:len(names), i, frame]
         compl = np.column_stack([names, counts])
         data[i] = np.vstack([compl]).tolist()
     return data
@@ -146,13 +147,14 @@ def dataToXls(data, fileName):
 # given array of file names to be added to xls file, total number of files, name of xls output, frame, ignore_null value
 # generates new xls workbook with six sheets representing different compartments
 # each sheet containing complex name in the first column and data from all inputted simulations in subsequent columns
-def multipleJ5ToXls(listOfFiles, numberOfIterations, fileName, frame=0, ignore_null=False):
+def multipleJ5ToXls(listOfFiles, fileName, frame=0, ignore_null=False):
     cytosolData = []
     dnaData = []
     extracellularSpaceData = []
     membraneData = []
     terminalOrganelleCytosolData = []
     terminalOrganelleMembraneData = []
+    numberOfIterations = len(listOfFiles)
     # separates data into 3D arrays representing specific compartments
     for i in range(numberOfIterations):
         cytosolData.append(getRawData(listOfFiles[i], frame, ignore_null)[0])
@@ -254,23 +256,28 @@ def doSum(itemData, rawData):
             if row == 0:
                 name = col
             if row == 1:
-                if (itemData.has_key(name)):
-                    itemData[name] = itemData[name] + int(col)
+                if(itemData.has_key(name)):
+                    itemData[name] = itemData[name] + float(col)
                 else:
-                    itemData[name] = int(col)
+                    itemData[name] = float(col)
 
-def writeSheet(rawData, hashData, sheet, count):
-    i = 0
+# write xls sheet
+def writeSheet(sheet, rawData, hashData, columnName, sheetCol, count, printName=False):
+    sheetRow = 0
+    sheet.write(sheetRow, sheetCol, columnName)
+
     for row, list in enumerate(rawData):
         for row, col in enumerate(list):
             if row == 0:
-                sheet.write(i, 0, col)
-                sheet.write(i, 1, hashData[col])
-                sheet.write(i, 2, count)
-                sheet.write(i, 3, hashData[col] / count)
-                i += 1
+                sheetRow += 1
+                if (printName):
+                    sheet.write(sheetRow, 0, col)
+                sheet.write(sheetRow, sheetCol, math.ceil(hashData[col] / count))
 
-def multipleJ5ToXlsWithAverages(listOfFiles, numberOfIterations, fileName, frame=0, ignore_null=False):
+# given array of file names to be added to xls file, name of xls output, frame, ignore_null value
+# generates new xls workbook with one sheet
+# sheet containing complex name in the first column and average data from the six compartments in subsequent columns
+def multipleJ5ToXlsWithAverages(listOfFiles, fileName, frame=0, ignore_null=False):
     cytosolData = {}
     dnaData = {}
     extracellularSpaceData = {}
@@ -278,6 +285,7 @@ def multipleJ5ToXlsWithAverages(listOfFiles, numberOfIterations, fileName, frame
     terminalOrganelleCytosolData = {}
     terminalOrganelleMembraneData = {}
     count = 0
+    numberOfIterations = len(listOfFiles)
     for i in range(numberOfIterations):
         rawData = getRawData(listOfFiles[i], frame, ignore_null)
         doSum(cytosolData, rawData[0])
@@ -288,22 +296,19 @@ def multipleJ5ToXlsWithAverages(listOfFiles, numberOfIterations, fileName, frame
         doSum(terminalOrganelleMembraneData, rawData[5])
         count += 1
     book = xlwt.Workbook()
-    sheet1 = book.add_sheet('cytosolData', cell_overwrite_ok=True)
-    sheet2 = book.add_sheet('dnaData', cell_overwrite_ok=True)
-    sheet3 = book.add_sheet('extracellularSpaceData', cell_overwrite_ok=True)
-    sheet4 = book.add_sheet('membraneData', cell_overwrite_ok=True)
-    sheet5 = book.add_sheet('terminalOrganelleCytosolData', cell_overwrite_ok=True)
-    sheet6 = book.add_sheet('terminalOrganelleMembraneData', cell_overwrite_ok=True)
-    writeSheet(rawData[0], cytosolData, sheet1, count)
-    writeSheet(rawData[1], dnaData, sheet2, count)
-    writeSheet(rawData[2], extracellularSpaceData, sheet3, count)
-    writeSheet(rawData[3], membraneData, sheet4, count)
-    writeSheet(rawData[4], terminalOrganelleCytosolData, sheet5, count)
-    writeSheet(rawData[5], terminalOrganelleMembraneData, sheet6, count)
+    sheet = book.add_sheet('Mycoplasma genitalium', cell_overwrite_ok=True)
+    writeSheet(sheet, rawData[0], cytosolData, 'cytosolData', 1, count, True)
+    writeSheet(sheet, rawData[1], dnaData, 'dnaData', 2, count)
+    writeSheet(sheet, rawData[2], extracellularSpaceData, 'extracellularSpaceData', 3, count)
+    writeSheet(sheet, rawData[3], membraneData, 'membraneData', 4, count)
+    writeSheet(sheet, rawData[4], terminalOrganelleCytosolData, 'terminalOrganelleCytosolData', 5, count)
+    writeSheet(sheet, rawData[5], terminalOrganelleMembraneData, 'terminalOrganelleMembraneData', 6, count)
+
     name = fileName + ".xls"
     book.save(name)
     book.save(TemporaryFile())
 
+# write .csv file
 def writeFileCsv(rawData, hashData, fileName, count):
     file = open(fileName + '_avg_count.csv', 'w')
     for row, list in enumerate(rawData):
@@ -312,7 +317,8 @@ def writeFileCsv(rawData, hashData, fileName, count):
                 file.write(col + ',' + str(hashData[col] / count) + '\n')
     file.close()
 
-def multipleJ5ToCsvWithAverages(listOfFiles, numberOfIterations, fileName, frame=0, ignore_null=False):
+# writes six .csv files each containing average data from one of the six compartments
+def multipleJ5ToCsvWithAverages(listOfFiles, frame=0, ignore_null=False):
     cytosolData = {}
     dnaData = {}
     extracellularSpaceData = {}
@@ -320,6 +326,7 @@ def multipleJ5ToCsvWithAverages(listOfFiles, numberOfIterations, fileName, frame
     terminalOrganelleCytosolData = {}
     terminalOrganelleMembraneData = {}
     count = 0
+    numberOfIterations = len(listOfFiles)
     for i in range(numberOfIterations):
         rawData = getRawData(listOfFiles[i], frame, ignore_null)
         doSum(cytosolData, rawData[0])
@@ -336,4 +343,4 @@ def multipleJ5ToCsvWithAverages(listOfFiles, numberOfIterations, fileName, frame
     writeFileCsv(rawData[4], terminalOrganelleCytosolData, 'terminalOrganelleCytosolData', count)
     writeFileCsv(rawData[5], terminalOrganelleMembraneData, 'terminalOrganelleMembraneData', count)
 
-# 20160714 work in progress...
+# 20160715 work in progress...
