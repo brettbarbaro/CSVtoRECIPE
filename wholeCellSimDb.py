@@ -9,11 +9,11 @@ Created on Tuesday, July 12, 2016
 # goal to extract copy numbers for protein complexes from simulation database in the form of h5 files
 # each simulation contains 201 protein complexes in six celluar compartments, six simulation states
 # and approximately 30000 frames (to represent different parts of a given simulation)
-import h5py
+import h5py # covert file are in h5 format
 import numpy as np
-import xlwt
+import xlwt # excel worksheet library
 import math
-from tempfile import TemporaryFile
+from tempfile import TemporaryFile # to write csv and othe file types
 
 # given h5 file location, frame, and ignore_null boolean (ignore_null declares whether or no to ignore data that is 0)
 # file location as a string (i.e. 'C:\\Users\\User\\Desktop\\Project\\simulation.h5')
