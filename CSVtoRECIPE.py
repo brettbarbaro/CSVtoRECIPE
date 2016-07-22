@@ -4,6 +4,11 @@ Created on Friday, July 8, 2016
 @author: brettbarbaro
 """
 
+# at this point, this program takes a csv file with three columnns - name,pdb,molarity - 
+# and outputs ingredient .json files for all of the proteins, and one .json file for the recipe
+# dae files need to be downloaded separately
+# when all of this is done, autoPACK can build a model with the recipe .json.
+
 print "hello"
 
 import csv
@@ -24,7 +29,7 @@ all_data = []
 #col_id = [0, 1]
 #total = [total_I, total_IBAQ, total_LFQ]
 #oneMol = [total_I, total_IBAQ, total_LFQ]
-with open(f, 'rU') as csvfile:
+with open(f, 'rU') as csvfile: # need to open the file in Universal mode so it can read Mac Excel output .csv
     spamreader = csv.reader(csvfile)
     for row in spamreader:
         all_data.append(row)
@@ -74,9 +79,9 @@ with open(f, 'rU') as csvfile:
 
 #   export ingredients as json
 
-for x in range(1, len(all_data)):
-    name = all_data[x][0]
-    pdb = all_data[x][1]
+for x in range(1, len(all_data)): # for every protein
+    name = all_data[x][0]         # get name, pdb, and molarity
+    pdb = all_data[x][1]          # and use to make an ingredient .json
     if all_data[x][2] == '':
         molarity = '0.0'
     else:
@@ -164,7 +169,7 @@ for x in range(1, len(all_data)):
     ingredient.close()
 
 # export recipe as .json
-recipe = open("recipe.json","w")
+recipe = open("recipe.json","w") #create recipe.json file
 
 recipe.write(str('{\n'))
 recipe.write(str(' "recipe":{\n'))
@@ -210,14 +215,14 @@ recipe.write(str(' "cytoplasme":{\n'))
 recipe.write(str('  "ingredients":{\n'))
     
 
-for x in range(1, len(all_data)):
+for x in range(1, len(all_data)):           #for each protein, make an entry in the recipe file
     if all_data[x][0] != '':
         name = all_data[x][0]
         recipe.write(str('   "' + name + '":{\n'))
         recipe.write(str('    "include":"' + name + '.json",\n'))
         recipe.write(str('    "name":"' + name + '"\n'))
         recipe.write(str('   }'))
-        if x < (len(all_data) - 1):
+        if x < (len(all_data) - 1):         # the last } can't have a comma after it.
             recipe.write(str(',\n'))
 
 recipe.write(str('\n  }\n'))
