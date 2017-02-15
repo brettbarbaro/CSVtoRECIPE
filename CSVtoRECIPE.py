@@ -15,6 +15,7 @@ updated 20160816
 # handles must be in proper format - not sure of criteria
 # pdb IDs must be in proper format: four character codes
 # pdb ID's work as handles
+# "oldnumeric" folder must be copied from /Users/mac/Library/Preferences/MAXON/CINEMA 4D R17_89538A46/plugins/ePMV/mgl64/MGLToolsPckgs/numpy" to "/Users/mac/anaconda/lib/python2.7/site-packages/numpy" to get the Collada stuff to work
 
 print
 "hello"
@@ -25,7 +26,7 @@ from Bio.PDB.PDBList import PDBList
 import sys
 
 sys.path.insert(0,
-                "/Users/brettbarbaro/Library/Preferences/MAXON/CINEMA 4D R18 Demo_90CF7FEA/plugins/ePMV/mgl64/MGLToolsPckgs/")
+                "/Users/mac/Library/Preferences/MAXON/CINEMA 4D R17_89538A46/plugins/ePMV/mgl64/MGLToolsPckgs/")
 import csv
 # import random  # only for color assignments
 import os
@@ -34,10 +35,10 @@ from collada import material
 from collada import source
 from collada import geometry
 from collada import scene
-import numpy
+import numpy # "oldnumeric" folder must be copied from /Users/mac/Library/Preferences/MAXON/CINEMA 4D R17_89538A46/plugins/ePMV/mgl64/MGLToolsPckgs/numpy" to "/Users/mac/anaconda/lib/python2.7/site-packages/numpy" to get it to work
 
 #cwd = os.getcwd() + os.sep
-cwd = '/Users/Brett/FELLOWSHIP/Programming/CSVTORECIPE/Alber_model/'
+cwd = '/Users/mac/Desktop/Alber model/'
 
 csvname = "Alber_model - Sheet1d"
 f = cwd + csvname + ".csv"
