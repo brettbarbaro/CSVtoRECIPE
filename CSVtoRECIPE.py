@@ -36,7 +36,8 @@ from collada import geometry
 from collada import scene
 import numpy
 
-cwd = os.getcwd() + os.sep
+#cwd = os.getcwd() + os.sep
+cwd = '/Users/Brett/FELLOWSHIP/Programming/CSVTORECIPE/Alber_model/'
 
 csvname = "Alber_model - Sheet1d"
 f = cwd + csvname + ".csv"
