@@ -20,13 +20,18 @@ updated 20160816
 print
 "hello"
 
+#cwd = os.getcwd() + os.sep
+cwd = '/Users/mac/Desktop/Alber model/'
+
+csvname = "Alber_model_ALL-1QO1-2REC"
+f = cwd + csvname + ".csv"
+
 from Bio.PDB.PDBParser import PDBParser
 from Bio.PDB.PDBList import PDBList
 
 import sys
 
-sys.path.insert(0,
-                "/Users/mac/Library/Preferences/MAXON/CINEMA 4D R17_89538A46/plugins/ePMV/mgl64/MGLToolsPckgs/")
+sys.path.insert(0, "/Users/mac/Library/Preferences/MAXON/CINEMA 4D R17_89538A46/plugins/ePMV/mgl64/MGLToolsPckgs/")
 import csv
 # import random  # only for color assignments
 import os
@@ -37,12 +42,6 @@ from collada import geometry
 from collada import scene
 import numpy # "oldnumeric" folder must be copied from /Users/mac/Library/Preferences/MAXON/CINEMA 4D R17_89538A46/plugins/ePMV/mgl64/MGLToolsPckgs/numpy" to "/Users/mac/anaconda/lib/python2.7/site-packages/numpy" to get it to work
 
-#cwd = os.getcwd() + os.sep
-cwd = '/Users/mac/Desktop/Alber model/'
-
-csvname = "Alber_model - Sheet1d"
-f = cwd + csvname + ".csv"
-
 surface = False
 
 pdbpath = cwd + 'pdbs' + os.sep
@@ -52,77 +51,9 @@ print
 'cluster_radius =', str(cluster_radius)
 
 
-def oneMaterial(name, collada_xml, color=None):
-    if color == None:
-        color = numpy.random.random(4)
-        color[3] = 1.0
-    if len(color) == 3:
-        color = [color[0], color[1], color[2], 1.0]
-    effect = material.Effect("effect" + name, [], "phong",
-                             diffuse=color)
-    mat = material.Material("material" + name, name + "_material", effect)
-    matnode = scene.MaterialNode("material" + name, mat, inputs=[])
-    collada_xml.effects.append(effect)
-    collada_xml.materials.append(mat)
-    return matnode
-
-
-def colladaMesh(name, v, n, f, collada_xml, matnode=None):
-    vertxyz = numpy.array(v)  # * numpy.array([1,1,-1])
-    #    z,y,x=vertzyx.transpose()
-    #    if SWAPZ :
-    #        vertxyz = numpy.vstack([x,y,z]).transpose()* numpy.array([1,1,-1])
-    #    else :
-    #        vertxyz = numpy.vstack([x,y,z]).transpose()
-    #    vertxyz = numpy.vstack([x,y,z]).transpose()* numpy.array([1,1,-1])
-    vert_src = source.FloatSource(name + "_verts-array", vertxyz.flatten(), ('X', 'Y', 'Z'))
-    input_list = source.InputList()
-    input_list.addInput(0, 'VERTEX', "#" + name + "_verts-array")
-    if type(n) != type(None) and len(n):
-        norzyx = numpy.array(n)
-        nz, ny, nx = norzyx.transpose()
-        norxyz = numpy.vstack([nx, ny, nz]).transpose()  # * numpy.array([1,1,-1])
-        #        if SWAPZ :
-        #            norxyz = numpy.vstack([nx,ny,nz]).transpose()* numpy.array([1,1,-1])
-        #        else :
-        #            norxyz = numpy.vstack([nx,ny,nz]).transpose()
-        normal_src = source.FloatSource(name + "_normals-array", norxyz.flatten(), ('X', 'Y', 'Z'))
-        geom = geometry.Geometry(scene, "geometry" + name, name, [vert_src, normal_src])
-        input_list.addInput(0, 'NORMAL', "#" + name + "_normals-array")
-    else:
-        geom = geometry.Geometry(scene, "geometry" + name, name, [vert_src])
-        # invert all the face
-    fi = numpy.array(f, int)  # [:,::-1]
-    #    if SWAPZ :
-    #        fi=numpy.array(f,int)[:,::-1]
-    #    else :
-    #        fi=numpy.array(f,int)
-    triset = geom.createTriangleSet(fi.flatten(), input_list, name + "materialref")
-    geom.primitives.append(triset)
-    collada_xml.geometries.append(geom)
-    master_geomnode = scene.GeometryNode(geom, [matnode])
-    master_node = scene.Node("node_" + name, children=[master_geomnode, ])  # ,transforms=[tr,rz,ry,rx,s])
-    return master_node
-
-
-def buildMeshGeom(name, vertices, faces, vnormals, collada_xml, matnode):
-    iname = name
-    vertxyz = numpy.array(vertices)  # * numpy.array([1,1,-1])
-    vert_src = source.FloatSource(iname + "_verts-array", vertxyz.flatten(), ('X', 'Y', 'Z'))
-    geom = geometry.Geometry(collada_xml, "geometry" + iname, iname, [vert_src])
-    input_list = source.InputList()
-    input_list.addInput(0, 'VERTEX', "#" + iname + "_verts-array")
-    fi = numpy.array(faces, int)  # [:,::-1]
-    triset = geom.createTriangleSet(fi.flatten(), input_list, iname + "materialref")
-    geom.primitives.append(triset)
-    collada_xml.geometries.append(geom)
-    master_geomnode = scene.GeometryNode(geom, [matnode])
-    master_node = scene.Node("node_" + iname, children=[master_geomnode, ])  # ,transforms=[tr,rz,ry,rx,s])
-    return master_node
-
-
 def coarseMolSurface(coords, radii, XYZd=[32, 32, 32], isovalue=6.0, resolution=-0.1, padding=0.0,
                      name='CoarseMolSurface', geom=None):
+    print('coarseMolSurface:' + name)
     from UTpackages.UTblur import blur
     if radii is None:
         radii = np.ones(len(coords)) * 1.8
@@ -164,6 +95,7 @@ def coarseMolSurface(coords, radii, XYZd=[32, 32, 32], isovalue=6.0, resolution=
 
 
 def simpleCollada(name, v, f, n, filename):
+    print('simpleCollada:' + name)
     mesh = Collada()
     effect = material.Effect("effect0", [], "phong", diffuse=(1, 0, 0), specular=(0, 1, 0))
     mat = material.Material("material0", "mymaterial", effect)
@@ -189,6 +121,7 @@ def simpleCollada(name, v, f, n, filename):
 
 
 def generateDAEFromPDB(name, coords, filename):
+    print('generateDAEFromPDB:' + name)
     #    collada_xml = Collada()
     #    collada_xml.assetInfo.unitname="centimeter"
     #    collada_xml.assetInfo.unitmeter=0.01
@@ -205,17 +138,6 @@ def generateDAEFromPDB(name, coords, filename):
                                        name='CoarseMolSurface', geom=None)
     simpleCollada(name, vert, tri, [], filename)
 
-    #    matnode=oneMaterial(name,collada_xml)
-    ##    master_node=buildMeshGeom(name,vert,tri,norm,collada_xml,matnode)
-    #    master_node=colladaMesh(name,vert,tri,[],collada_xml,matnode)
-    #    collada_xml.nodes.append(master_node)
-    #
-    #    collada_xml.write(filename)
-    print
-    filename
-
-
-#    return collada_xml
 
 def handleFix(handle):
     handle = handle.replace('.', '_')
@@ -300,10 +222,10 @@ import csv
 
 # import data from csv file - Brett
 
-if not os.path.isdir('pdbs'):
+if not os.path.isdir(cwd + 'pdbs'):
     print
     'making pdbs directory'
-    os.mkdir('pdbs')
+    os.mkdir(cwd + 'pdbs')
 
 pdbpath = cwd + 'pdbs/'
 
@@ -544,7 +466,7 @@ def writeIngredient(handle, pdb, molarity, mw):
     saveDejaVuMesh(handle, "", atoms_coord_centerd)
     #    saveDejaVuMesh(handle + '_cl', "", positions)      # don't think we need to save DejaVu file for clusters - that info is contained in the ingredient files.
 
-    ingredient = open("%s.json" % handle, "w")
+    ingredient = open(cwd + "%s.json" % handle, "w")
 
     ingredient.write(str('{\n'))
     ingredient.write(str('    "packingMode": "random",\n'))
@@ -621,7 +543,7 @@ def writeIngredient(handle, pdb, molarity, mw):
 print
 'writing recipe'
 
-recipe = open("RECIPE-" + csvname + "-CR" + str(cluster_radius) + ".json", "w")  # create recipe.json file
+recipe = open(cwd + "RECIPE-" + csvname + ".json", "w")  # create recipe.json file
 
 recipe.write(str('{\n'))
 recipe.write(str(' "recipe":{\n'))
@@ -645,9 +567,9 @@ recipe.write(str('    100,\n'))
 recipe.write(str('    100'))
 recipe.write(str('   ],\n'))
 recipe.write(str('   [\n'))
-recipe.write(str('    900,\n'))
-recipe.write(str('    900,\n'))
-recipe.write(str('    900\n'))
+recipe.write(str('    1900,\n'))
+recipe.write(str('    1900,\n'))
+recipe.write(str('    1900\n'))
 recipe.write(str('   ]\n'))
 recipe.write(str('  ],\n'))
 recipe.write(str('  "gradients":[],\n'))
