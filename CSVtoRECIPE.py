@@ -18,7 +18,7 @@ print("hello")
 
 #cwd = os.getcwd() + os.sep
 cwd = '/Users/mac/Documents/Alber_model_2/'
-csvname = "Alber_model_ALL-1QO1-2REC"
+csvname = "Alber_model_ALL"
 recipe_name = cwd + "RECIPE-" + csvname + ".json"
 f = cwd + csvname + ".csv"
 
@@ -49,7 +49,7 @@ cluster_radius = 'variable'  # radius of spheres in clustered model (min: 5) - d
 print('cluster_radius = ' + str(cluster_radius))
 
 
-def coarseMolSurface(coords, radii, XYZd=[32, 32, 32], isovalue=6.0, resolution=-0.1, padding=0.0,
+def coarseMolSurface(coords, radii, resolution, XYZd=[32, 32, 32], isovalue=6.0, padding=0.0,
                      name='CoarseMolSurface', geom=None):
     print('coarseMolSurface')
     from UTpackages.UTblur import blur
@@ -117,7 +117,7 @@ def simpleCollada(name, v, f, n, filename):
     mesh.assetInfo.upaxis = "Y_UP"
     mesh.write(filename)
 
-def generateDAEFromPDB(name, coords, filename):
+def generateDAEFromPDB(name, coords, filename, resolution):
     print('generateDAEFromPDB: ' + name)
     #    collada_xml = Collada()
     #    collada_xml.assetInfo.unitname="centimeter"
@@ -131,7 +131,7 @@ def generateDAEFromPDB(name, coords, filename):
     #
     name = name
     radii = numpy.array([1.3, ] * len(coords))
-    vert, norm, tri = coarseMolSurface(coords, radii, XYZd=[32, 32, 32], isovalue=6.0, resolution=-0.1, padding=0.0,
+    vert, norm, tri = coarseMolSurface(coords, radii, resolution, XYZd=[32, 32, 32], isovalue=6.0, padding=0.0,
                                        name='CoarseMolSurface', geom=None)
     simpleCollada(name, vert, tri, [], filename)
 
@@ -308,6 +308,7 @@ def buildProxy(handle, pdbid, cluster_radius, pdbfn, surface=False, overwrite=Fa
     # structure_id = pdbid
     center = [0, 0, 0]
     atoms_coord = []
+    resolution = -0.1
     xml = None
     # name = name.split("-")[0]
     #    fname = name.split("-")[0]
@@ -341,12 +342,20 @@ def buildProxy(handle, pdbid, cluster_radius, pdbfn, surface=False, overwrite=Fa
     if not os.path.isfile(cwd + handle + "_cl.indpolvert") or overwrite:
         pdb_struct = parser.get_structure(pdbid, pdbfn)
         for m in pdb_struct.get_models():
+            residue_num = 0
             atoms_coord = [atom.coord.tolist() for atom in m.get_atoms() if atom.parent.resname != "DUM"]  #
+            atom_num = len(atoms_coord)
+            for residues in m.get_residues():
+                residue_num += 1
+            print('residue_num = ' + str(residue_num))
+            print('atoms_coord = ' + str(atom_num))
+            if atom_num < 4*residue_num:
+                resolution = -0.05 # changes resolution for alpha-carbon-only structures
             break  # breaks after first entry
         if atoms_coord == []:
             print(pdbid, "not found in pdb")
             return None
-        center = np.average(atoms_coord, axis=0)
+        center = np.average(atoms_coord, axis=0) # FIX average position of atoms, weighted by distribution, but not MW
         atoms_coord_centerd = np.array(atoms_coord) - center
         R = np.linalg.norm(atoms_coord_centerd,
                            axis=1).max()  # R is encapsulating radius - just length of longest vector
@@ -362,8 +371,7 @@ def buildProxy(handle, pdbid, cluster_radius, pdbfn, surface=False, overwrite=Fa
         if cluster_radius == 'variable':
             nProxy = 5
             Vproxy = float(V / 5)
-            cluster_radius = (((Vproxy * 3) / (math.pi * 4)) ** (
-            1. / 3)) * 1.2  # *1.2 is to increase radius a bit so the spheres will touch. there is no support for this.
+            cluster_radius = (((Vproxy * 3) / (math.pi * 4)) ** (1. / 3)) * 1.2  # *1.2 is to increase radius a bit so the spheres will touch. there is no support for this.
         else:
             Vproxy = 4 * math.pi * (cluster_radius * cluster_radius * cluster_radius) / 3.0
             nProxy = int(round(V / Vproxy))
@@ -384,7 +392,7 @@ def buildProxy(handle, pdbid, cluster_radius, pdbfn, surface=False, overwrite=Fa
             centroids)  # this is so they are equal in number - kmeans sometimes does not produce nProxy centroids, especially when cluster_radius is low (e.g. <5)
         # mesh = coarseMolSurface(atoms_coord_centerd.tolist(),None)
         # msms ?
-        generateDAEFromPDB(handle, atoms_coord_centerd, cwd + handle + "_coarse.dae")
+        generateDAEFromPDB(handle, atoms_coord_centerd, cwd + handle + "_coarse.dae", resolution)
 
         center = center.tolist()
         centroids = centroids.tolist()
@@ -406,7 +414,7 @@ def saveDejaVuMesh(handle, faces,
 
 
 pl = PDBList(pdb=pdbpath)
-parser = PDBParser(PERMISSIVE=1)
+parser = PDBParser(PERMISSIVE=True, QUIET=True) # QUIET=True suppresses warnings about pdb files
 
 
 # if not os.path.isdir('dejavus'):
