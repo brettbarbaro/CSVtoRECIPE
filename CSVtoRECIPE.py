@@ -5,26 +5,25 @@ Created on Friday, July 8, 2016
 updated 20160816
 """
 
-# input: a csv file with first four columnns: handle, pdb, molarity, mw
-#         only looks at first four columns - others are ignored
+# input: a csv file with at least columnns headed: INCLUDE, NAME HANDLE, MOL, PDB
 # outputs: ingredient .json files for all of the proteins
 # outputs: one .json file for the recipe
-# outputs: proxy .dae files (tetrahedra)
-# proper dae files need to be downloaded separately
 # when all of this is done, autoPACK can build a model with the recipe .json.
 # handles must be in proper format - not sure of criteria
 # pdb IDs must be in proper format: four character codes
 # pdb ID's work as handles
 # "oldnumeric" folder must be copied from /Users/mac/Library/Preferences/MAXON/CINEMA 4D R17_89538A46/plugins/ePMV/mgl64/MGLToolsPckgs/numpy" to "/Users/mac/anaconda/lib/python2.7/site-packages/numpy" to get the Collada stuff to work
 
-print
-"hello"
+print("hello")
 
 #cwd = os.getcwd() + os.sep
-cwd = '/Users/mac/Desktop/Alber model/'
-
+cwd = '/Users/mac/Documents/Alber_model_2/'
 csvname = "Alber_model_ALL-1QO1-2REC"
+recipe_name = cwd + "RECIPE-" + csvname + ".json"
 f = cwd + csvname + ".csv"
+
+boundingBox = '[[100, 100, 100],[900, 900, 900]]'
+
 
 from Bio.PDB.PDBParser import PDBParser
 from Bio.PDB.PDBList import PDBList
@@ -47,13 +46,12 @@ surface = False
 pdbpath = cwd + 'pdbs' + os.sep
 
 cluster_radius = 'variable'  # radius of spheres in clustered model (min: 5) - doesn't work if it's too small (e.g. nothing lower than 5 worked when I tried it)
-print
-'cluster_radius =', str(cluster_radius)
+print('cluster_radius = ' + str(cluster_radius))
 
 
 def coarseMolSurface(coords, radii, XYZd=[32, 32, 32], isovalue=6.0, resolution=-0.1, padding=0.0,
                      name='CoarseMolSurface', geom=None):
-    print('coarseMolSurface:' + name)
+    print('coarseMolSurface')
     from UTpackages.UTblur import blur
     if radii is None:
         radii = np.ones(len(coords)) * 1.8
@@ -95,7 +93,7 @@ def coarseMolSurface(coords, radii, XYZd=[32, 32, 32], isovalue=6.0, resolution=
 
 
 def simpleCollada(name, v, f, n, filename):
-    print('simpleCollada:' + name)
+    print('simpleCollada: ' + name)
     mesh = Collada()
     effect = material.Effect("effect0", [], "phong", diffuse=(1, 0, 0), specular=(0, 1, 0))
     mat = material.Material("material0", "mymaterial", effect)
@@ -119,9 +117,8 @@ def simpleCollada(name, v, f, n, filename):
     mesh.assetInfo.upaxis = "Y_UP"
     mesh.write(filename)
 
-
 def generateDAEFromPDB(name, coords, filename):
-    print('generateDAEFromPDB:' + name)
+    print('generateDAEFromPDB: ' + name)
     #    collada_xml = Collada()
     #    collada_xml.assetInfo.unitname="centimeter"
     #    collada_xml.assetInfo.unitmeter=0.01
@@ -161,18 +158,6 @@ def handleFix(handle):
     handle = handle.replace('^', '_')
     handle = handle.replace('%', '_')
     handle = handle.replace('-', '_')  # left these open to add more blacklisted characters later
-    handle = handle.replace('.', '_')
-    handle = handle.replace('.', '_')
-    handle = handle.replace('.', '_')
-    handle = handle.replace('.', '_')
-    handle = handle.replace('.', '_')
-    handle = handle.replace('.', '_')
-    handle = handle.replace('.', '_')
-    handle = handle.replace('.', '_')
-    handle = handle.replace('.', '_')
-    handle = handle.replace('.', '_')
-    handle = handle.replace('.', '_')
-    handle = handle.replace('.', '_')
 
     x = 1  # this routine adds a number to the handle if it's been used before
     test_handle = handle
@@ -187,7 +172,6 @@ def handleFix(handle):
 
     return handle
     # import datetime   # optional for timestamp if desired
-
 
 # current_time = datetime.datetime.strftime(datetime.datetime.now(), '%H.%M.%S')
 
@@ -210,27 +194,21 @@ with open(f, 'rU') as csvfile:  # need to open the file in Universal mode so it 
 
 headers = {'test': 'headers test works'}
 
-print
-headers['test']
+print(headers['test'])
 
 for num in range(len(all_data[0])):
     headers[all_data[0][
         num]] = num  # This establishes a dictionary with the header names in it. After this, columns can be indicated with e.g. "handle = all_data[x][headers['HANDLE']]". The headers must be correctly labeled.
 
 import urllib
-import csv
-
-# import data from csv file - Brett
 
 if not os.path.isdir(cwd + 'pdbs'):
-    print
-    'making pdbs directory'
+    print('making pdbs directory')
     os.mkdir(cwd + 'pdbs')
 
 pdbpath = cwd + 'pdbs/'
 
-print
-"fetching PDB files"
+print('fetching PDB files')
 
 ''' this code was written by Jared Truong - from fetchPDBFilesb.1'''
 
@@ -320,8 +298,7 @@ def getRadiusFromMW(mw):
 
 
 def buildProxy(handle, pdbid, cluster_radius, pdbfn, surface=False, overwrite=False):  # Ludo's code, modified by Brett
-    print
-    'buildProxy for', handle
+    print('buildProxy for ' + handle)
     # read the pdb
     # build cluster
     # pass pos/radii
@@ -390,8 +367,7 @@ def buildProxy(handle, pdbid, cluster_radius, pdbfn, surface=False, overwrite=Fa
         else:
             Vproxy = 4 * math.pi * (cluster_radius * cluster_radius * cluster_radius) / 3.0
             nProxy = int(round(V / Vproxy))
-            print
-            "clusters:", nProxy, "   atoms:", len(atoms_coord)
+            print("clusters:", nProxy, "   atoms:", len(atoms_coord))
         if nProxy == 0:
             nProxy = 1
             # ~(1.21 x MW) A**3/molecule
@@ -403,8 +379,7 @@ def buildProxy(handle, pdbid, cluster_radius, pdbfn, surface=False, overwrite=Fa
             #	--------------------------------------------------------------
             #			 6.02 x 10**23 molecules/mole
         centroids, _ = kmeans(atoms_coord_centerd, nProxy)
-        print
-        'kmeans completed'
+        print('kmeans completed')
         nProxy = len(
             centroids)  # this is so they are equal in number - kmeans sometimes does not produce nProxy centroids, especially when cluster_radius is low (e.g. <5)
         # mesh = coarseMolSurface(atoms_coord_centerd.tolist(),None)
@@ -443,13 +418,10 @@ parser = PDBParser(PERMISSIVE=1)
 
 
 def writeIngredient(handle, pdb, molarity, mw):
-    print
-    'write_Ingredient', handle
+    print('write_Ingredient ' + handle)
     pdbfn = pdbpath + str(pdb) + '.pdb'
-    print
-    pdbfn
-    print
-    pdb
+    print(pdbfn)
+    print(pdb)
 
     if not pdb:
         R = getRadiusFromMW(mw)
@@ -540,207 +512,103 @@ def writeIngredient(handle, pdb, molarity, mw):
 
 
 # export recipe as .json
-print
-'writing recipe'
+def writeRecipe():
+    print('writing recipe')
 
-recipe = open(cwd + "RECIPE-" + csvname + ".json", "w")  # create recipe.json file
+    recipe = open(recipe_name, "w")  # create recipe.json file
 
-recipe.write(str('{\n'))
-recipe.write(str(' "recipe":{\n'))
-recipe.write(str('  "version":"1.0",\n'))
-recipe.write(str('  "name":"' + csvname + '"\n'))
-recipe.write(str(' },\n'))
-recipe.write(str(' "options":{\n'))
-recipe.write(str('  "cancelDialog":false,\n'))
-recipe.write(str('  "_hackFreepts":false,\n'))
-recipe.write(str('  "windowsSize":1,\n'))
-recipe.write(str('  "use_gradient":false,\n'))
-recipe.write(str('  "placeMethod":"pandaBullet",\n'))
-recipe.write(str('  "saveResult":false,\n'))
-recipe.write(str('  "runTimeDisplay":false,\n'))
-recipe.write(str('  "overwritePlaceMethod":true,\n'))
-recipe.write(str('  "innerGridMethod":"jordan3",\n'))
-recipe.write(str('  "boundingBox":[\n'))
-recipe.write(str('   [\n'))
-recipe.write(str('    100,\n'))
-recipe.write(str('    100,\n'))
-recipe.write(str('    100'))
-recipe.write(str('   ],\n'))
-recipe.write(str('   [\n'))
-recipe.write(str('    1900,\n'))
-recipe.write(str('    1900,\n'))
-recipe.write(str('    1900\n'))
-recipe.write(str('   ]\n'))
-recipe.write(str('  ],\n'))
-recipe.write(str('  "gradients":[],\n'))
-recipe.write(str('  "smallestProteinSize":100,\n'))
-recipe.write(str('  "computeGridParams":true,\n'))
-recipe.write(str('  "freePtsUpdateThrehod":0,\n'))
-recipe.write(str('  "pickWeightedIngr":true,\n'))
-recipe.write(str('  "_timer":false,\n'))
-recipe.write(str('  "ingrLookForNeighbours":false,\n'))
-recipe.write(str('  "pickRandPt":true,\n'))
-recipe.write(str('  "largestProteinSize":100,\n'))
-recipe.write(str('  "resultfile":"",\n'))
-recipe.write(str('  "use_periodicity":false,\n'))
-recipe.write(str('  "EnviroOnly":false\n'))
-recipe.write(str(' },\n'))
+    recipe.write(str('{\n'))
+    recipe.write(str(' "recipe":{\n'))
+    recipe.write(str('  "version":"1.0",\n'))
+    recipe.write(str('  "name":"' + csvname + '"\n'))
+    recipe.write(str(' },\n'))
+    recipe.write(str(' "options":{\n'))
+    recipe.write(str('  "cancelDialog":false,\n'))
+    recipe.write(str('  "_hackFreepts":false,\n'))
+    recipe.write(str('  "windowsSize":1,\n'))
+    recipe.write(str('  "use_gradient":false,\n'))
+    recipe.write(str('  "placeMethod":"pandaBullet",\n'))
+    recipe.write(str('  "saveResult":false,\n'))
+    recipe.write(str('  "runTimeDisplay":false,\n'))
+    recipe.write(str('  "overwritePlaceMethod":true,\n'))
+    recipe.write(str('  "innerGridMethod":"jordan3",\n'))
+    recipe.write(str('  "boundingBox":' + boundingBox + ',\n'))
+    recipe.write(str('  "gradients":[],\n'))
+    recipe.write(str('  "smallestProteinSize":100,\n'))
+    recipe.write(str('  "computeGridParams":true,\n'))
+    recipe.write(str('  "freePtsUpdateThrehod":0,\n'))
+    recipe.write(str('  "pickWeightedIngr":true,\n'))
+    recipe.write(str('  "_timer":false,\n'))
+    recipe.write(str('  "ingrLookForNeighbours":false,\n'))
+    recipe.write(str('  "pickRandPt":true,\n'))
+    recipe.write(str('  "largestProteinSize":100,\n'))
+    recipe.write(str('  "resultfile":"",\n'))
+    recipe.write(str('  "use_periodicity":false,\n'))
+    recipe.write(str('  "EnviroOnly":false\n'))
+    recipe.write(str(' },\n'))
 
-recipe.write(str('''
- "cytoplasme":{
-  "ingredients":{
-'''))
-if surface:
-    recipe.write(str('''}
- },
- "compartments":{
-  "''' + surface + '''":{
-   "geom":"''' + surface + '''.dae",
-   "name":"''' + surface + '''",
-   "surface":{
-    "ingredients":{}
-   },
-   "interior":{
-    "ingredients":{
-'''))
-
-first = True
-
-for x in range(1, len(all_data)):  # for each entry in the input .csv
-    include = all_data[x][headers['INCLUDE']]
-    handle = str(all_data[x][headers['HANDLE']])
-    pdb = all_data[x][headers['PDB']]
-    pdb = pdb.split("_")[0]  # gets rid of any "_X" after pdb name
-    molarity = all_data[x][headers['MOL']]
-    mw = all_data[x][headers['MW']]
-    if include and handle and molarity and (float(
-            molarity) > 0):  # if there is no handle in the .csv file, or if molarity=0, the ingredient is skipped - if there is no molarity listed, then an ingredient is created whose molarity can be adjusted later
-        if pdb and not os.path.isfile(pdbpath + pdb + '.pdb'):  # if it's not already there
-            isfile = write_pdbFile(pdb, pdbpath)  # download it
-            if isfile != True:
-                print(pdb + " NOT FOUND IN PDB")
-                if not mw:
-                    print('NO PDB OR MW - SKIPPING ' + pdb)
-                continue
-        handle = handleFix(handle)
-        if not first:  # the first won't be preceeded by a comma. (the last can't have a comma)
-            recipe.write(str(',\n'))
-        first = False
-        recipe.write(str('     "' + handle + '":{\n'))
-        recipe.write(str('      "include":"' + handle + '.json",\n'))
-        recipe.write(str('      "name":"' + handle + '"\n'))
-        recipe.write(str('     }'))
-        writeIngredient(handle, pdb, molarity, mw)
-
-if surface:
     recipe.write(str('''
+     "cytoplasme":{
+      "ingredients":{
+    '''))
+    if surface:
+        recipe.write(str('''}
+     },
+     "compartments":{
+      "''' + surface + '''":{
+       "geom":"''' + surface + '''.dae",
+       "name":"''' + surface + '''",
+       "surface":{
+        "ingredients":{}
+       },
+       "interior":{
+        "ingredients":{
+    '''))
+
+    first = True
+
+    for x in range(1, len(all_data)):  # for each entry in the input .csv
+        include = all_data[x][headers['INCLUDE']]
+        handle = str(all_data[x][headers['HANDLE']])
+        pdb = all_data[x][headers['PDB']]
+        pdb = pdb.split("_")[0]  # gets rid of any "_X" after pdb name
+        molarity = all_data[x][headers['MOL']]
+        mw = all_data[x][headers['MW']]
+        if include and handle and molarity and (float(
+                molarity) > 0):  # if there is no handle in the .csv file, or if molarity=0, the ingredient is skipped - if there is no molarity listed, then an ingredient is created whose molarity can be adjusted later
+            if pdb and not os.path.isfile(pdbpath + pdb + '.pdb'):  # if it's not already there
+                isfile = write_pdbFile(pdb, pdbpath)  # download it
+                if isfile != True:
+                    print(pdb + " NOT FOUND IN PDB")
+                    if not mw:
+                        print('NO PDB OR MW - SKIPPING ' + pdb)
+                    continue
+            handle = handleFix(handle)
+            if not first:  # the first won't be preceeded by a comma. (the last can't have a comma)
+                recipe.write(str(',\n'))
+            first = False
+            recipe.write(str('     "' + handle + '":{\n'))
+            recipe.write(str('      "include":"' + handle + '.json",\n'))
+            recipe.write(str('      "name":"' + handle + '"\n'))
+            recipe.write(str('     }'))
+            writeIngredient(handle, pdb, molarity, mw)
+
+    if surface:
+        recipe.write(str('''
+        }
+       }'''))
+
+    recipe.write(str('''
+      }
+     }
     }
-   }'''))
+    '''))
 
-recipe.write(str('''
-  }
- }
-}
-'''))
+    recipe.close()
 
-recipe.close()
+writeRecipe()
 
 os.system('say "Beer time."')
 
-# writes a tetrahedral dae file as a proxy for every handle
-
-# for x in range(1, len(all_data)): # for every protein
-#    handle = all_data[x][headers['HANDLE']]         # get handle and make .dae file
-#
-#    if all_data[x][0] != '':
-#        mw = float(all_data[x][3])
-#        radius = .0066141 * (mw ** (1. / 3)) # radius of sphere based on mw; density = 1.212 cubic angstroms per dalton (Erickson 2009, Biol Proced Online)
-#
-#        dae = open("%s.dae" % handle,"w")
-#
-#        dae.write(str('<?xml version="1.0"?>\n'))
-#        dae.write(str('<COLLADA xmlns="http://www.collada.org/2005/11/COLLADASchema" version="1.4.1">\n'))
-#        dae.write(str('    <asset>\n'))
-#        dae.write(str('        <contributor>\n'))
-#        dae.write(str('            <authoring_tool>CINEMA4D 17.048 COLLADA Exporter</authoring_tool>\n'))
-#        dae.write(str('        </contributor>\n'))
-#        dae.write(str('        <created>2016-07-27T01:52:33Z</created>\n'))
-#        dae.write(str('        <modified>2016-07-27T01:52:33Z</modified>\n'))
-#        dae.write(str('        <unit meter="0.01" name="centimeter"/>\n'))
-#        dae.write(str('        <up_axis>Y_UP</up_axis>\n'))
-#        dae.write(str('    </asset>\n'))
-#        dae.write(str('    <library_geometries>\n'))
-#        dae.write(str('        <geometry id="ID4">\n'))
-#        dae.write(str('            <mesh>\n'))
-#        dae.write(str('                <source id="ID5">\n'))
-#        dae.write(str('                    <float_array id="ID6" count="12">' + str(radius * -81.6497) + ' ' + str(radius * -33.3333 ) + ' ' + str(radius * 47.1405 ) + ' ' + str(radius * 81.6497 ) + ' ' + str(radius * -33.3333 ) + ' ' + str(radius * 47.1405 ) + ' ' + str(radius * 0) + ' ' + str(radius * -33.3333) + ' ' + str(radius * -94.2809) + ' ' + str(radius * 0) + ' ' + str(radius * 100) + ' ' + str(radius * -0) + '</float_array>\n'))
-#        dae.write(str('                    <technique_common>\n'))
-#        dae.write(str('                        <accessor count="4" source="#ID6" stride="3">\n'))
-#        dae.write(str('                            <param name="X" type="float"/>\n'))
-#        dae.write(str('                            <param name="Y" type="float"/>\n'))
-#        dae.write(str('                            <param name="Z" type="float"/>\n'))
-#        dae.write(str('                        </accessor>\n'))
-#        dae.write(str('                    </technique_common>\n'))
-#        dae.write(str('                </source>\n'))
-#        dae.write(str('                <source id="ID7">\n'))
-#        dae.write(str('                    <float_array id="ID8" count="12">0 -1 -0 0 0.333333 0.942809 0.816497 0.333333 -0.471405 -0.816497 0.333333 -0.471405</float_array>\n'))
-#        dae.write(str('                    <technique_common>\n'))
-#        dae.write(str('                        <accessor count="4" source="#ID8" stride="3">\n'))
-#        dae.write(str('                            <param name="X" type="float"/>\n'))
-#        dae.write(str('                            <param name="Y" type="float"/>\n'))
-#        dae.write(str('                            <param name="Z" type="float"/>\n'))
-#        dae.write(str('                        </accessor>\n'))
-#        dae.write(str('                    </technique_common>\n'))
-#        dae.write(str('                </source>\n'))
-#        dae.write(str('                <source id="ID9">\n'))
-#        dae.write(str('                    <float_array id="ID10" count="2">0 1</float_array>\n'))
-#        dae.write(str('                    <technique_common>\n'))
-#        dae.write(str('                        <accessor count="1" source="#ID10" stride="2">\n'))
-#        dae.write(str('                            <param name="S" type="float"/>\n'))
-#        dae.write(str('                            <param name="T" type="float"/>\n'))
-#        dae.write(str('                        </accessor>\n'))
-#        dae.write(str('                    </technique_common>\n'))
-#        dae.write(str('                </source>\n'))
-#        dae.write(str('                <vertices id="ID11">\n'))
-#        dae.write(str('                    <input semantic="POSITION" source="#ID5"/>\n'))
-#        dae.write(str('                </vertices>\n'))
-#        dae.write(str('                <triangles count="4" material="">\n'))
-#        dae.write(str('                    <input offset="0" semantic="VERTEX" source="#ID11"/>\n'))
-#        dae.write(str('                    <input offset="1" semantic="NORMAL" source="#ID7"/>\n'))
-#        dae.write(str('                    <input offset="2" semantic="TEXCOORD" source="#ID9" set="0"/>\n'))
-#        dae.write(str('                    <p>2 0 0 1 0 0 0 0 0 1 1 0 3 1 0 0 1 0 2 2 0 3 2 0 1 2 0 0 3 0 3 3 0 2 3 0</p>\n'))
-#        dae.write(str('                </triangles>\n'))
-#        dae.write(str('            </mesh>\n'))
-#        dae.write(str('        </geometry>\n'))
-#        dae.write(str('    </library_geometries>\n'))
-#        dae.write(str('    <library_visual_scenes>\n'))
-#        dae.write(str('        <visual_scene id="ID1">\n'))
-#        dae.write(str('            <node id="ID2" name="' + handle + '">\n'))
-#        dae.write(str('                <translate sid="translate">0 0 -0</translate>\n'))
-#        dae.write(str('                <rotate sid="rotateY">0 1 0 -0</rotate>\n'))
-#        dae.write(str('                <rotate sid="rotateX">1 0 0 0</rotate>\n'))
-#        dae.write(str('                <rotate sid="rotateZ">0 0 1 -0</rotate>\n'))
-#        dae.write(str('                <scale sid="scale">1 1 1</scale>\n'))
-#        dae.write(str('                <node id="ID3" name="' + handle + '">\n'))
-#        dae.write(str('                    <translate sid="translate">0 0 -0</translate>\n'))
-#        dae.write(str('                    <rotate sid="rotateY">0 1 0 -0</rotate>\n'))
-#        dae.write(str('                    <rotate sid="rotateX">1 0 0 0</rotate>\n'))
-#        dae.write(str('                    <rotate sid="rotateZ">0 0 1 -0</rotate>\n'))
-#        dae.write(str('                    <scale sid="scale">1 1 1</scale>\n'))
-#        dae.write(str('                    <instance_geometry url="#ID4"/>\n'))
-#        dae.write(str('                </node>\n'))
-#        dae.write(str('            </node>\n'))
-#        dae.write(str('        </visual_scene>\n'))
-#        dae.write(str('    </library_visual_scenes>\n'))
-#        dae.write(str('    <scene>\n'))
-#        dae.write(str('        <instance_visual_scene url="#ID1"/>\n'))
-#        dae.write(str('    </scene>\n'))
-#        dae.write(str('</COLLADA>'))
-#
-#        dae.close()
-
-
-
-print
-"done"
+print("done")
 
