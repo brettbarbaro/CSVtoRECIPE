@@ -29,9 +29,11 @@ from collada import material
 from collada import source
 from collada import geometry
 from collada import scene
-import numpy  # "oldnumeric" folder must be copied from
-# /Users/mac/Library/Preferences/MAXON/CINEMA 4D R17_89538A46/plugins/ePMV/mgl64/MGLToolsPckgs/numpy" to
-# "/Users/mac/anaconda/lib/python2.7/site-packages/numpy" to get it to work
+import \
+    numpy as np  # "oldnumeric" folder must be copied from /Users/mac/Library/Preferences/MAXON/CINEMA 4D R17_89538A46/plugins/ePMV/mgl64/MGLToolsPckgs/numpy" to "/Users/mac/anaconda/lib/python2.7/site-packages/numpy" to get it to work
+import urllib
+import math
+from scipy.cluster.vq import kmeans
 
 sys.path.insert(0, "/Users/mac/Library/Preferences/MAXON/CINEMA 4D R17_89538A46/plugins/ePMV/mgl64/MGLToolsPckgs/")
 
@@ -41,7 +43,7 @@ print("hello")
 model_dir = '/Users/mac/Documents/Alber_model_2/'
 csvname = "Alber_model_ALL"
 recipe_name = model_dir + "RECIPE-" + csvname + ".json"
-f = model_dir + csvname + ".csv"
+csvpath = model_dir + csvname + ".csv"
 
 boundingBox = '[[100, 100, 100],[900, 900, 900]]'
 
@@ -54,7 +56,8 @@ print('cluster_radius = ' + str(cluster_radius))
 
 
 # noinspection PyUnresolvedReferences
-def coarseMolSurface(coords, radii, resolution, XYZd=(32, 32, 32), isovalue=6.0):  # , padding=0.0, name='CoarseMolSurface', geom=None):
+def coarseMolSurface(coords, radii, resolution, XYZd=(32, 32, 32), isovalue=6.0, padding=0.0, name='CoarseMolSurface',
+                     geom=None):
     print('coarseMolSurface')
     from UTpackages.UTblur import blur
     if radii is None:
@@ -87,7 +90,7 @@ def coarseMolSurface(coords, radii, resolution, XYZd=(32, 32, 32), isovalue=6.0)
                                    isocontour.NO_COLOR_VARIABLE)
     vert = np.zeros((isoc.nvert, 3)).astype('f')
     norm = np.zeros((isoc.nvert, 3)).astype('f')
-    col = np.zeros((isoc.nvert)).astype('f')
+    col = np.zeros(isoc.nvert).astype('f')
     tri = np.zeros((isoc.ntri, 3)).astype('i')
     isocontour.getContour3dData(isoc, vert, norm, col, tri, 0)
     # print vert
@@ -103,11 +106,11 @@ def simpleCollada(name, v, f, n, filename):
     mat = material.Material("material0", "mymaterial", effect)
     mesh.effects.append(effect)
     mesh.materials.append(mat)
-    vert_src = source.FloatSource(name + "-v-array", numpy.array(v).flatten(), ('X', 'Y', 'Z'))
+    vert_src = source.FloatSource(name + "-v-array", np.array(v).flatten(), ('X', 'Y', 'Z'))
     geom = geometry.Geometry(mesh, "geometry0", name, [vert_src])
     input_list = source.InputList()
     input_list.addInput(0, 'VERTEX', "#" + name + "-v-array")
-    triset = geom.createTriangleSet(numpy.array(f).flatten(), input_list, "materialref")
+    triset = geom.createTriangleSet(np.array(f).flatten(), input_list, "materialref")
     geom.primitives.append(triset)
     mesh.geometries.append(geom)
     matnode = scene.MaterialNode("materialref", mat, inputs=[])
@@ -135,7 +138,7 @@ def generateDAEFromPDB(name, coords, filename, resolution):
     #    collada_xml.scene = myscene
     #
     name = name
-    radii = numpy.array([1.3, ] * len(coords))
+    radii = np.array([1.3, ] * len(coords))
     vert, norm, tri = coarseMolSurface(coords, radii, resolution, XYZd=[32, 32, 32], isovalue=6.0, padding=0.0,
                                        name='CoarseMolSurface', geom=None)
     simpleCollada(name, vert, tri, [], filename)
@@ -193,7 +196,7 @@ handle_list = [None]
 # cell_mass = cell_volume * cell_density * math.pow(10, -12)  # g
 # protein_mass = cell_mass * protein_content_fraction  # g
 
-with open(f, 'rU') as csvfile:  # need to open the file in Universal mode so it can read Mac Excel output .csv
+with open(csvpath, 'rU') as csvfile:  # need to open the file in Universal mode so it can read Mac Excel output .csv
     spamreader = csv.reader(csvfile)
     for row in spamreader:
         all_data.append(row)
@@ -206,8 +209,6 @@ for num in range(len(all_data[0])):
     headers[all_data[0][
         num]] = num  # This establishes a dictionary with the header names in it. After this, columns can be indicated with e.g. "handle = all_data[x][headers['HANDLE']]". The headers must be correctly labeled.
 
-import urllib
-
 if not os.path.isdir(model_dir + 'pdbs'):
     print('making pdbs directory')
     os.mkdir(model_dir + 'pdbs')
@@ -219,13 +220,13 @@ print('fetching PDB files')
 
 # given pdb ID and path of folder to store files('C:\\Users\\User\\Desktop\\pdbFiles')
 # writes pdb file into given location with file name "pdbid.pdb"
-def write_pdbFile(pdbid, pdbpath):
+def write_pdbFile(pdbid, pdbfilepath):
     print('write_pdbFile')
     data = fetch_pdb(pdbid)
     if data:
-        file = open(str(pdbpath) + str(pdbid) + '.pdb', 'w')
-        file.write(data)
-        file.close()
+        pdbfile = open(str(pdbfilepath) + str(pdbid) + '.pdb', 'w')
+        pdbfile.write(data)
+        pdbfile.close()
         return True
     else:
         return False
@@ -288,12 +289,6 @@ Entries without "PDB" create spheres with volume based on "MW".
 
 """
 
-import numpy as np
-
-import os
-import math
-from scipy.cluster.vq import kmeans
-
 
 def getRadiusFromMW(mw):
     mw = float(mw)
@@ -312,6 +307,7 @@ def buildProxy(handle, pdbid, cluster_radius, pdbfn, surface=False, overwrite=Fa
     # structure_id = pdbid
     center = [0, 0, 0]
     atoms_coord = []
+    atoms_coord_centerd = []
     resolution = -0.1
     xml = None
     # name = name.split("-")[0]
@@ -356,7 +352,7 @@ def buildProxy(handle, pdbid, cluster_radius, pdbfn, surface=False, overwrite=Fa
             if atom_num < 4 * residue_num:
                 resolution = -0.05  # changes resolution for alpha-carbon-only structures
             break  # breaks after first entry
-        if atoms_coord == []:
+        if not atoms_coord:
             print(pdbid, "not found in pdb")
             return None
         center = np.average(atoms_coord, axis=0)  # FIX average position of atoms, weighted by distribution, but not MW
@@ -376,7 +372,7 @@ def buildProxy(handle, pdbid, cluster_radius, pdbfn, surface=False, overwrite=Fa
             nProxy = 5
             Vproxy = float(V / 5)
             cluster_radius = (((Vproxy * 3) / (math.pi * 4)) ** (
-            1. / 3)) * 1.2  # *1.2 is to increase radius a bit so the spheres will touch. there is no support for this.
+                1. / 3)) * 1.2  # *1.2 is to increase radius a bit so the spheres will touch. there is no support for this.
         else:
             Vproxy = 4 * math.pi * (cluster_radius * cluster_radius * cluster_radius) / 3.0
             nProxy = int(round(V / Vproxy))
@@ -427,7 +423,6 @@ parser = PDBParser(PERMISSIVE=True, QUIET=True)  # QUIET=True suppresses warning
 #    os.mkdir('dejavus')
 #
 # dejavupath = model_dir + 'dejavus' + os.sep
-
 
 
 def writeIngredient(handle, pdb, molarity, mw):
@@ -564,19 +559,19 @@ def writeRecipe():
      "cytoplasme":{
       "ingredients":{
     '''))
-    if surface:
-        recipe.write(str('''}
-     },
-     "compartments":{
-      "''' + surface + '''":{
-       "geom":"''' + surface + '''.dae",
-       "name":"''' + surface + '''",
-       "surface":{
-        "ingredients":{}
-       },
-       "interior":{
-        "ingredients":{
-    '''))
+    # if surface:
+    #     recipe.write(str('''}
+    #  },
+    #  "compartments":{
+    #   "''' + surface + '''":{
+    #    "geom":"''' + surface + '''.dae",
+    #    "name":"''' + surface + '''",
+    #    "surface":{
+    #     "ingredients":{}
+    #    },
+    #    "interior":{
+    #     "ingredients":{
+    # '''))
 
     first = True
 
@@ -591,7 +586,7 @@ def writeRecipe():
                 molarity) > 0):  # if there is no handle in the .csv file, or if molarity=0, the ingredient is skipped - if there is no molarity listed, then an ingredient is created whose molarity can be adjusted later
             if pdb and not os.path.isfile(pdbpath + pdb + '.pdb'):  # if it's not already there
                 isfile = write_pdbFile(pdb, pdbpath)  # download it
-                if isfile != True:
+                if not isfile:
                     print(pdb + " NOT FOUND IN PDB")
                     if not mw:
                         print('NO PDB OR MW - SKIPPING ' + pdb)
@@ -606,10 +601,10 @@ def writeRecipe():
             recipe.write(str('     }'))
             writeIngredient(handle, pdb, molarity, mw)
 
-    if surface:
-        recipe.write(str('''
-        }
-       }'''))
+    # if surface:
+    #     recipe.write(str('''
+    #     }
+    #    }'''))
 
     recipe.write(str('''
       }
