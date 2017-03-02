@@ -12,25 +12,15 @@ updated 20160816
 # handles must be in proper format - not sure of criteria
 # pdb IDs must be in proper format: four character codes
 # pdb ID's work as handles
-# "oldnumeric" folder must be copied from /Users/mac/Library/Preferences/MAXON/CINEMA 4D R17_89538A46/plugins/ePMV/mgl64/MGLToolsPckgs/numpy" to "/Users/mac/anaconda/lib/python2.7/site-packages/numpy" to get the Collada stuff to work
-
-print("hello")
-
-#cwd = os.getcwd() + os.sep
-cwd = '/Users/mac/Documents/Alber_model_2/'
-csvname = "Alber_model_ALL"
-recipe_name = cwd + "RECIPE-" + csvname + ".json"
-f = cwd + csvname + ".csv"
-
-boundingBox = '[[100, 100, 100],[900, 900, 900]]'
-
+# "oldnumeric" folder must be copied from
+# /Users/mac/Library/Preferences/MAXON/CINEMA 4D R17_89538A46/plugins/ePMV/mgl64/MGLToolsPckgs/numpy" to
+# "/Users/mac/anaconda/lib/python2.7/site-packages/numpy" to get the Collada stuff to work
 
 from Bio.PDB.PDBParser import PDBParser
 from Bio.PDB.PDBList import PDBList
 
 import sys
 
-sys.path.insert(0, "/Users/mac/Library/Preferences/MAXON/CINEMA 4D R17_89538A46/plugins/ePMV/mgl64/MGLToolsPckgs/")
 import csv
 # import random  # only for color assignments
 import os
@@ -39,18 +29,32 @@ from collada import material
 from collada import source
 from collada import geometry
 from collada import scene
-import numpy # "oldnumeric" folder must be copied from /Users/mac/Library/Preferences/MAXON/CINEMA 4D R17_89538A46/plugins/ePMV/mgl64/MGLToolsPckgs/numpy" to "/Users/mac/anaconda/lib/python2.7/site-packages/numpy" to get it to work
+import numpy  # "oldnumeric" folder must be copied from
+# /Users/mac/Library/Preferences/MAXON/CINEMA 4D R17_89538A46/plugins/ePMV/mgl64/MGLToolsPckgs/numpy" to
+# "/Users/mac/anaconda/lib/python2.7/site-packages/numpy" to get it to work
+
+sys.path.insert(0, "/Users/mac/Library/Preferences/MAXON/CINEMA 4D R17_89538A46/plugins/ePMV/mgl64/MGLToolsPckgs/")
+
+print("hello")
+
+# cwd = os.getcwd() + os.sep
+model_dir = '/Users/mac/Documents/Alber_model_2/'
+csvname = "Alber_model_ALL"
+recipe_name = model_dir + "RECIPE-" + csvname + ".json"
+f = model_dir + csvname + ".csv"
+
+boundingBox = '[[100, 100, 100],[900, 900, 900]]'
 
 surface = False
 
-pdbpath = cwd + 'pdbs' + os.sep
+pdbpath = model_dir + 'pdbs' + os.sep
 
 cluster_radius = 'variable'  # radius of spheres in clustered model (min: 5) - doesn't work if it's too small (e.g. nothing lower than 5 worked when I tried it)
 print('cluster_radius = ' + str(cluster_radius))
 
 
-def coarseMolSurface(coords, radii, resolution, XYZd=[32, 32, 32], isovalue=6.0, padding=0.0,
-                     name='CoarseMolSurface', geom=None):
+# noinspection PyUnresolvedReferences
+def coarseMolSurface(coords, radii, resolution, XYZd=(32, 32, 32), isovalue=6.0):  # , padding=0.0, name='CoarseMolSurface', geom=None):
     print('coarseMolSurface')
     from UTpackages.UTblur import blur
     if radii is None:
@@ -60,7 +64,7 @@ def coarseMolSurface(coords, radii, resolution, XYZd=[32, 32, 32], isovalue=6.0,
                                                 padding=0.0)
     volarr.shape = (XYZd[0], XYZd[1], XYZd[2])
     volarr = np.ascontiguousarray(np.transpose(volarr), 'f')
-    weights = np.ones(len(radii), "f")
+    # weights = np.ones(len(radii), "f")
     h = {}
     from Volume.Grid3D import Grid3DF
     maskGrid = Grid3DF(volarr, origin, span, h)
@@ -116,6 +120,7 @@ def simpleCollada(name, v, f, n, filename):
     mesh.assetInfo.unitmeter = 0.01
     mesh.assetInfo.upaxis = "Y_UP"
     mesh.write(filename)
+
 
 def generateDAEFromPDB(name, coords, filename, resolution):
     print('generateDAEFromPDB: ' + name)
@@ -173,6 +178,7 @@ def handleFix(handle):
     return handle
     # import datetime   # optional for timestamp if desired
 
+
 # current_time = datetime.datetime.strftime(datetime.datetime.now(), '%H.%M.%S')
 
 # import data from csv file - Brett
@@ -202,11 +208,9 @@ for num in range(len(all_data[0])):
 
 import urllib
 
-if not os.path.isdir(cwd + 'pdbs'):
+if not os.path.isdir(model_dir + 'pdbs'):
     print('making pdbs directory')
-    os.mkdir(cwd + 'pdbs')
-
-pdbpath = cwd + 'pdbs/'
+    os.mkdir(model_dir + 'pdbs')
 
 print('fetching PDB files')
 
@@ -339,7 +343,7 @@ def buildProxy(handle, pdbid, cluster_radius, pdbfn, surface=False, overwrite=Fa
     #        print np.array([[0,0,0]])
     #        return [[0,0,0]],[[R]],R,[],[],pdbfn, np.array([[0,0,0]])
 
-    if not os.path.isfile(cwd + handle + "_cl.indpolvert") or overwrite:
+    if not os.path.isfile(model_dir + handle + "_cl.indpolvert") or overwrite:
         pdb_struct = parser.get_structure(pdbid, pdbfn)
         for m in pdb_struct.get_models():
             residue_num = 0
@@ -349,13 +353,13 @@ def buildProxy(handle, pdbid, cluster_radius, pdbfn, surface=False, overwrite=Fa
                 residue_num += 1
             print('residue_num = ' + str(residue_num))
             print('atoms_coord = ' + str(atom_num))
-            if atom_num < 4*residue_num:
-                resolution = -0.05 # changes resolution for alpha-carbon-only structures
+            if atom_num < 4 * residue_num:
+                resolution = -0.05  # changes resolution for alpha-carbon-only structures
             break  # breaks after first entry
         if atoms_coord == []:
             print(pdbid, "not found in pdb")
             return None
-        center = np.average(atoms_coord, axis=0) # FIX average position of atoms, weighted by distribution, but not MW
+        center = np.average(atoms_coord, axis=0)  # FIX average position of atoms, weighted by distribution, but not MW
         atoms_coord_centerd = np.array(atoms_coord) - center
         R = np.linalg.norm(atoms_coord_centerd,
                            axis=1).max()  # R is encapsulating radius - just length of longest vector
@@ -371,7 +375,8 @@ def buildProxy(handle, pdbid, cluster_radius, pdbfn, surface=False, overwrite=Fa
         if cluster_radius == 'variable':
             nProxy = 5
             Vproxy = float(V / 5)
-            cluster_radius = (((Vproxy * 3) / (math.pi * 4)) ** (1. / 3)) * 1.2  # *1.2 is to increase radius a bit so the spheres will touch. there is no support for this.
+            cluster_radius = (((Vproxy * 3) / (math.pi * 4)) ** (
+            1. / 3)) * 1.2  # *1.2 is to increase radius a bit so the spheres will touch. there is no support for this.
         else:
             Vproxy = 4 * math.pi * (cluster_radius * cluster_radius * cluster_radius) / 3.0
             nProxy = int(round(V / Vproxy))
@@ -392,12 +397,12 @@ def buildProxy(handle, pdbid, cluster_radius, pdbfn, surface=False, overwrite=Fa
             centroids)  # this is so they are equal in number - kmeans sometimes does not produce nProxy centroids, especially when cluster_radius is low (e.g. <5)
         # mesh = coarseMolSurface(atoms_coord_centerd.tolist(),None)
         # msms ?
-        generateDAEFromPDB(handle, atoms_coord_centerd, cwd + handle + "_coarse.dae", resolution)
+        generateDAEFromPDB(handle, atoms_coord_centerd, model_dir + handle + "_coarse.dae", resolution)
 
         center = center.tolist()
         centroids = centroids.tolist()
     else:
-        centroids = np.loadtxt(cwd + handle + "_cl.indpolvert")
+        centroids = np.loadtxt(model_dir + handle + "_cl.indpolvert")
         nProxy = len(centroids)
         R = np.linalg.norm(centroids, axis=1).max() + cluster_radius
         centroids = centroids.tolist()
@@ -406,22 +411,22 @@ def buildProxy(handle, pdbid, cluster_radius, pdbfn, surface=False, overwrite=Fa
 
 def saveDejaVuMesh(handle, faces,
                    vertices):  # Ludo's code, modified by Brett NOTE: .indpolvert must have at least three lines, because cellPACK is expecting triangles.
-    #    if os.path.isfile(cwd + pdbid + '.indpolvert'):
+    #    if os.path.isfile(model_dir + pdbid + '.indpolvert'):
     #        return
-    np.savetxt(cwd + handle + ".indpolvert",
+    np.savetxt(model_dir + handle + ".indpolvert",
                vertices)  # including all atom positions doesn't significantly slow down results
-    np.savetxt(cwd + handle + ".indpolface", [])  # this is a dummy file - autopack needs it to read in DejaVu
+    np.savetxt(model_dir + handle + ".indpolface", [])  # this is a dummy file - autopack needs it to read in DejaVu
 
 
 pl = PDBList(pdb=pdbpath)
-parser = PDBParser(PERMISSIVE=True, QUIET=True) # QUIET=True suppresses warnings about pdb files
+parser = PDBParser(PERMISSIVE=True, QUIET=True)  # QUIET=True suppresses warnings about pdb files
 
 
 # if not os.path.isdir('dejavus'):
 #    print 'making dejavus directory'
 #    os.mkdir('dejavus')
 #
-# dejavupath = cwd + 'dejavus' + os.sep
+# dejavupath = model_dir + 'dejavus' + os.sep
 
 
 
@@ -446,7 +451,7 @@ def writeIngredient(handle, pdb, molarity, mw):
     saveDejaVuMesh(handle, "", atoms_coord_centerd)
     #    saveDejaVuMesh(handle + '_cl', "", positions)      # don't think we need to save DejaVu file for clusters - that info is contained in the ingredient files.
 
-    ingredient = open(cwd + "%s.json" % handle, "w")
+    ingredient = open(model_dir + "%s.json" % handle, "w")
 
     ingredient.write(str('{\n'))
     ingredient.write(str('    "packingMode": "random",\n'))
@@ -614,9 +619,9 @@ def writeRecipe():
 
     recipe.close()
 
+
 writeRecipe()
 
 os.system('say "Beer time."')
 
 print("done")
-
