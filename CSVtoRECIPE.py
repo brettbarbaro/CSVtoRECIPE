@@ -10,14 +10,14 @@ updated 20160816
 # outputs: one .json file for the recipe
 # when all of this is done, autoPACK can build a model with the recipe .json.
 # handles must be in proper format - not sure of criteria
-# pdb IDs must be in proper format: four character codes
-# pdb ID's work as handles
+# PDBIDs must be in proper format: four character codes
+# PDBID's work as handles
 # "oldnumeric" folder must be copied from
 # /Users/mac/Library/Preferences/MAXON/CINEMA 4D R17_89538A46/plugins/ePMV/mgl64/MGLToolsPckgs/numpy" to
 # "/Users/mac/anaconda/lib/python2.7/site-packages/numpy" to get the Collada stuff to work
 
 from Bio.PDB.PDBParser import PDBParser
-from Bio.PDB.PDBList import PDBList
+# from Bio.PDB.PDBList import PDBList
 
 import sys
 
@@ -41,7 +41,7 @@ print("hello")
 
 # cwd = os.getcwd() + os.sep
 model_dir = '/Users/mac/Documents/Alber_model_2/'
-csvname = "Alber_model_ALL"
+csvname = "Alber_model_1A1S_1BXR_1QO1"
 recipe_name = model_dir + "RECIPE-" + csvname + ".json"
 csvpath = model_dir + csvname + ".csv"
 
@@ -49,7 +49,7 @@ boundingBox = '[[100, 100, 100],[900, 900, 900]]'
 
 surface = False
 
-pdbpath = model_dir + 'pdbs' + os.sep
+pdbpath = model_dir + 'PDB' + os.sep
 
 cluster_radius = 'variable'  # radius of spheres in clustered model (min: 5) - doesn't work if it's too small (e.g. nothing lower than 5 worked when I tried it)
 print('cluster_radius = ' + str(cluster_radius))
@@ -127,16 +127,6 @@ def simpleCollada(name, v, f, n, filename):
 
 def generateDAEFromPDB(name, coords, filename, resolution):
     print('generateDAEFromPDB: ' + name)
-    #    collada_xml = Collada()
-    #    collada_xml.assetInfo.unitname="centimeter"
-    #    collada_xml.assetInfo.unitmeter=0.01
-    #    collada_xml.assetInfo.upaxis="Y_UP"
-    #
-    #    root_env=scene.Node("root_"+name)
-    #    myscene = scene.Scene(name+"_Scene", [root_env])
-    #    collada_xml.scenes.append(myscene)
-    #    collada_xml.scene = myscene
-    #
     name = name
     radii = np.array([1.3, ] * len(coords))
     vert, norm, tri = coarseMolSurface(coords, radii, resolution, XYZd=[32, 32, 32], isovalue=6.0, padding=0.0,
@@ -202,24 +192,18 @@ with open(csvpath, 'rU') as csvfile:  # need to open the file in Universal mode 
         all_data.append(row)
 
 headers = {'test': 'headers test works'}
-
 print(headers['test'])
 
 for num in range(len(all_data[0])):
-    headers[all_data[0][
-        num]] = num  # This establishes a dictionary with the header names in it. After this, columns can be indicated with e.g. "handle = all_data[x][headers['HANDLE']]". The headers must be correctly labeled.
+    headers[all_data[0][num]] = num  # This establishes a dictionary with the header names in it. After this, columns can be indicated with e.g. "handle = all_data[x][headers['HANDLE']]". The headers must be correctly labeled.
 
-if not os.path.isdir(model_dir + 'pdbs'):
-    print('making pdbs directory')
-    os.mkdir(model_dir + 'pdbs')
-
-print('fetching PDB files')
-
-''' this code was written by Jared Truong - from fetchPDBFilesb.1'''
+if not os.path.isdir(model_dir + 'PDB'):
+    print('making PDB directory')
+    os.mkdir(model_dir + 'PDB')
 
 
-# given pdb ID and path of folder to store files('C:\\Users\\User\\Desktop\\pdbFiles')
-# writes pdb file into given location with file name "pdbid.pdb"
+# given PDB ID and path of folder to store files('C:\\Users\\User\\Desktop\\pdbFiles')
+# writes PDB file into given location with file name "pdbid.pdb" - this code was written by Jared Truong
 def write_pdbFile(pdbid, pdbfilepath):
     print('write_pdbFile')
     data = fetch_pdb(pdbid)
@@ -232,21 +216,12 @@ def write_pdbFile(pdbid, pdbfilepath):
         return False
 
 
-# given pdb ID
-# returns pdb file information
+# given PDB ID returns PDB file information - this code was written by Jared Truong
 def fetch_pdb(pdbid):
+    print('fetching PDB file')
     url = 'http://www.rcsb.org/pdb/files/%s.pdb' % pdbid.upper()
     return urllib.urlopen(url).read()
 
-
-# given list of pdbid strings, and path of folder to store files
-# writes a pdb file for each given IDs
-def savePdbFiles(pdbidList, locationPath):
-    for i in range(len(pdbidList)):
-        write_pdbFile(pdbidList[i], locationPath)
-
-
-''' this code was written by Jared Truong'''
 
 # fill in missing data
 #   Ingredients from proteomics:
@@ -414,8 +389,8 @@ def saveDejaVuMesh(handle, faces,
     np.savetxt(model_dir + handle + ".indpolface", [])  # this is a dummy file - autopack needs it to read in DejaVu
 
 
-pl = PDBList(pdb=pdbpath)
-parser = PDBParser(PERMISSIVE=True, QUIET=True)  # QUIET=True suppresses warnings about pdb files
+# pl = PDBList(pdb=pdbpath)
+parser = PDBParser(PERMISSIVE=True, QUIET=True)  # QUIET=True suppresses warnings about PDB files
 
 
 # if not os.path.isdir('dejavus'):
@@ -427,7 +402,7 @@ parser = PDBParser(PERMISSIVE=True, QUIET=True)  # QUIET=True suppresses warning
 
 def writeIngredient(handle, pdb, molarity, mw):
     print('write_Ingredient ' + handle)
-    pdbfn = pdbpath + str(pdb) + '.pdb'
+    pdbfn = pdbpath + str(pdb) + os.sep + str(pdb) + '.pdb'
     print(pdbfn)
     print(pdb)
 
@@ -437,7 +412,6 @@ def writeIngredient(handle, pdb, molarity, mw):
         pdb = 'null'
     else:
         proxy = buildProxy(handle, pdb, cluster_radius, pdbfn, surface=False, overwrite=True)
-        pdb = '\"' + pdb + '\"'
 
     positions = proxy[0]
     atoms_coord_centerd = proxy[6]
@@ -506,13 +480,13 @@ def writeIngredient(handle, pdb, molarity, mw):
     ingredient.write(str('    "cutoff_surface": 20.052597999572754,\n'))
     ingredient.write(str('    "proba_not_binding": 0.5,\n'))
     ingredient.write(str('    "source": {\n'))
-    ingredient.write(str('        "pdb": ' + pdb + ',\n'))
+    ingredient.write(str('        "pdb": \"' + pdb + '\",\n'))
     ingredient.write(str('        "transform": {\n'))
     ingredient.write(str('            "center": true\n'))
     ingredient.write(str('        }\n'))
     ingredient.write(str('    },\n'))
     ingredient.write(str('    "use_mesh_rb": false,\n'))
-    ingredient.write(str('    "pdb": ' + pdb + ',\n'))
+    ingredient.write(str('    "pdb": \"' + pdb + '\",\n'))
     ingredient.write(str('    "useRotAxis": 1\n'))
     ingredient.write(str('}'))
 
@@ -579,13 +553,15 @@ def writeRecipe():
         include = all_data[x][headers['INCLUDE']]
         handle = str(all_data[x][headers['HANDLE']])
         pdb = all_data[x][headers['PDB']]
-        pdb = pdb.split("_")[0]  # gets rid of any "_X" after pdb name
+        pdb = pdb.split("_")[0]  # gets rid of any "_X" after PDB name
         molarity = all_data[x][headers['MOL']]
         mw = all_data[x][headers['MW']]
-        if include and handle and molarity and (float(
-                molarity) > 0):  # if there is no handle in the .csv file, or if molarity=0, the ingredient is skipped - if there is no molarity listed, then an ingredient is created whose molarity can be adjusted later
-            if pdb and not os.path.isfile(pdbpath + pdb + '.pdb'):  # if it's not already there
-                isfile = write_pdbFile(pdb, pdbpath)  # download it
+        if include and handle and molarity and (float(molarity) > 0):  # if there is no handle in the .csv file, or if molarity=0, the ingredient is skipped - if there is no molarity listed, then an ingredient is created whose molarity can be adjusted later
+            if pdb and not os.path.isdir(model_dir + 'PDB/' + pdb):  # if the PDB's specific directory is not already there
+                os.mkdir(model_dir + 'PDB/' + pdb)
+                print('making directory for ' + pdb)
+                if not os.path.isfile(pdbpath + str(pdb) + os.sep + str(pdb) + '.pdb'):
+                    isfile = write_pdbFile(pdb, str(pdbpath + pdb + os.sep))  # download it to its directory
                 if not isfile:
                     print(pdb + " NOT FOUND IN PDB")
                     if not mw:
