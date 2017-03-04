@@ -22,7 +22,7 @@ from Bio.PDB.PDBParser import PDBParser
 import sys
 
 import csv
-# import random  # only for color assignments
+import random  # only for color assignments
 import os
 from collada import Collada
 from collada import material
@@ -40,8 +40,8 @@ sys.path.insert(0, "/Users/mac/Library/Preferences/MAXON/CINEMA 4D R17_89538A46/
 print("hello")
 
 # cwd = os.getcwd() + os.sep
-model_dir = '/Users/mac/Documents/Alber_model_2/'
-csvname = "Alber_model_1A1S_1BXR_1QO1"
+model_dir = '/Users/mac/Documents/Alber_model_3/'
+csvname = "Alber_model_ALL"
 recipe_name = model_dir + "RECIPE-" + csvname + ".json"
 csvpath = model_dir + csvname + ".csv"
 
@@ -380,13 +380,11 @@ def buildProxy(handle, pdbid, cluster_radius, pdbfn, surface=False, overwrite=Fa
     return centroids, [(np.ones(nProxy) * cluster_radius).tolist(), ], R, mesh, pdbfn, center, atoms_coord_centerd
 
 
-def saveDejaVuMesh(handle, faces,
-                   vertices):  # Ludo's code, modified by Brett NOTE: .indpolvert must have at least three lines, because cellPACK is expecting triangles.
+def saveDejaVuMesh(pdb, faces, vertices):  # Ludo's code, modified by Brett NOTE: .indpolvert must have at least three lines, because cellPACK is expecting triangles.
     #    if os.path.isfile(model_dir + pdbid + '.indpolvert'):
     #        return
-    np.savetxt(model_dir + handle + ".indpolvert",
-               vertices)  # including all atom positions doesn't significantly slow down results
-    np.savetxt(model_dir + handle + ".indpolface", [])  # this is a dummy file - autopack needs it to read in DejaVu
+    np.savetxt(model_dir + 'PDB/' + str(pdb) + os.sep + str(pdb) + ".indpolvert", vertices)  # including all atom positions doesn't significantly slow down results
+    np.savetxt(model_dir + 'PDB/' + str(pdb) + os.sep + str(pdb) + ".indpolface", [])  # this is a dummy file - autopack needs it to read in DejaVu
 
 
 # pl = PDBList(pdb=pdbpath)
@@ -417,7 +415,7 @@ def writeIngredient(handle, pdb, molarity, mw):
     atoms_coord_centerd = proxy[6]
     mesh = proxy[3]
     print(mesh)
-    saveDejaVuMesh(handle, "", atoms_coord_centerd)
+    saveDejaVuMesh(pdb, "", atoms_coord_centerd)
     #    saveDejaVuMesh(handle + '_cl', "", positions)      # don't think we need to save DejaVu file for clusters - that info is contained in the ingredient files.
 
     ingredient = open(model_dir + "%s.json" % handle, "w")
@@ -427,9 +425,9 @@ def writeIngredient(handle, pdb, molarity, mw):
     ingredient.write(str('    "partners_position": [],\n'))
     ingredient.write(str('    "weight": 0.20000000000000001,\n'))
     ingredient.write(str('    "color": [\n'))
-    ingredient.write(str('        0,\n'))  # color doesn't matter at this point (20160816) so I'm picking green!
-    ingredient.write(str('        1,\n'))
-    ingredient.write(str('        0\n'))
+    ingredient.write(str('        ' + str(random.random()) + ',\n'))  # color doesn't matter at this point (20160816) so I'm picking green!
+    ingredient.write(str('        ' + str(random.random()) + ',\n'))
+    ingredient.write(str('        ' + str(random.random()) + '\n'))
     ingredient.write(str('    ],\n'))
     ingredient.write(str('    "results": [],\n'))
     ingredient.write(str('    "radii": ' + str(proxy[1]) + ',\n'))
