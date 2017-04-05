@@ -8,7 +8,7 @@ updated 20160816
 # input: a csv file with at least columnns headed: INCLUDE, NAME HANDLE, MOL, PDB
 # outputs: ingredient .json files for all of the proteins
 # outputs: one .json file for the recipe
-# when all of this is done, autoPACK can build a model with the recipe .json.
+# when all of this is done, autoPACK can build a model with the RECIPE...json file.
 # handles must be in proper format - not sure of criteria
 # PDBIDs must be in proper format: four character codes
 # PDBID's work as handles
@@ -29,8 +29,7 @@ from collada import material
 from collada import source
 from collada import geometry
 from collada import scene
-import \
-    numpy as np  # "oldnumeric" folder must be copied from /Users/mac/Library/Preferences/MAXON/CINEMA 4D R17_89538A46/plugins/ePMV/mgl64/MGLToolsPckgs/numpy" to "/Users/mac/anaconda/lib/python2.7/site-packages/numpy" to get it to work
+import numpy as np  # "oldnumeric" folder must be copied from /Users/mac/Library/Preferences/MAXON/CINEMA 4D R17_89538A46/plugins/ePMV/mgl64/MGLToolsPckgs/numpy" to "/Users/mac/anaconda/lib/python2.7/site-packages/numpy" to get it to work
 import urllib
 import math
 from scipy.cluster.vq import kmeans
@@ -40,14 +39,14 @@ sys.path.insert(0, "/Users/mac/Library/Preferences/MAXON/CINEMA 4D R17_89538A46/
 print("hello")
 
 # cwd = os.getcwd() + os.sep
-model_dir = '/Users/mac/Documents/Alber_model_3/'
-csvname = "Alber_model_ALL"
-recipe_name = model_dir + "RECIPE-" + csvname + ".json"
+model_dir = '/Users/mac/Documents/Models/jitin_project/'
+csvname = "jitin_project"
+recipe_name = model_dir + "RECIPE_" + csvname + ".json"
 csvpath = model_dir + csvname + ".csv"
 
-boundingBox = '[[100, 100, 100],[900, 900, 900]]'
+boundingBox = '[[100, 100, 100],[900, 900, 900]]' # This doesn't really matter - gets adjusted automatically
 
-surface = False
+surface = 'Sphere2' # don't include ".dae" extension NAME OF EXPORTED MESH MUST MATCH FILENAME
 
 pdbpath = model_dir + 'PDB' + os.sep
 
@@ -531,19 +530,19 @@ def writeRecipe():
      "cytoplasme":{
       "ingredients":{
     '''))
-    # if surface:
-    #     recipe.write(str('''}
-    #  },
-    #  "compartments":{
-    #   "''' + surface + '''":{
-    #    "geom":"''' + surface + '''.dae",
-    #    "name":"''' + surface + '''",
-    #    "surface":{
-    #     "ingredients":{}
-    #    },
-    #    "interior":{
-    #     "ingredients":{
-    # '''))
+    if surface:
+        recipe.write(str('''}
+     },
+     "compartments":{
+      "''' + surface + '''":{
+       "geom":"''' + surface + '''.dae",
+       "name":"''' + surface + '''",
+       "surface":{
+        "ingredients":{}
+       },
+       "interior":{
+        "ingredients":{
+    '''))
 
     first = True
 
@@ -552,6 +551,10 @@ def writeRecipe():
         handle = str(all_data[x][headers['HANDLE']])
         pdb = all_data[x][headers['PDB']]
         pdb = pdb.split("_")[0]  # gets rid of any "_X" after PDB name
+        print('pdb = ' + pdb)
+        if not pdb:
+            pdb = 'pdb' + str(x)
+        print('pdb = ' + pdb)
         molarity = all_data[x][headers['MOL']]
         mw = all_data[x][headers['MW']]
         if include and handle and molarity and (float(molarity) > 0):  # if there is no handle in the .csv file, or if molarity=0, the ingredient is skipped - if there is no molarity listed, then an ingredient is created whose molarity can be adjusted later
@@ -559,9 +562,9 @@ def writeRecipe():
                 os.mkdir(model_dir + 'PDB/' + pdb)
                 print('making directory for ' + pdb)
                 if not os.path.isfile(pdbpath + str(pdb) + os.sep + str(pdb) + '.pdb'):
-                    isfile = write_pdbFile(pdb, str(pdbpath + pdb + os.sep))  # download it to its directory
-                if not isfile:
-                    print(pdb + " NOT FOUND IN PDB")
+                    newfile = write_pdbFile(pdb, str(pdbpath + pdb + os.sep))  # download it to its directory
+                if not newfile:
+                    print(pdb + ' NOT FOUND IN PDB')
                     if not mw:
                         print('NO PDB OR MW - SKIPPING ' + pdb)
                     continue
@@ -575,10 +578,10 @@ def writeRecipe():
             recipe.write(str('     }'))
             writeIngredient(handle, pdb, molarity, mw)
 
-    # if surface:
-    #     recipe.write(str('''
-    #     }
-    #    }'''))
+    if surface:
+        recipe.write(str('''
+        }
+       }'''))
 
     recipe.write(str('''
       }
