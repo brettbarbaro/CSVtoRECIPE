@@ -6,15 +6,20 @@ updated 20160816
 """
 
 # input: a csv file with at least columnns headed: INCLUDE, NAME HANDLE, MOL, PDB
-# outputs: ingredient .json files for all of the proteins
-# outputs: one .json file for the recipe
-# when all of this is done, autoPACK can build a model with the RECIPE...json file.
+# outputs: ingredient .json files for all of the proteins, one .json file for the recipe, downloads pdb files
+# when all of this is done, autoPACK can build a model with the RECIPE_...json file.
 # handles must be in proper format - not sure of criteria
 # PDBIDs must be in proper format: four character codes
 # PDBID's work as handles
-# "oldnumeric" folder must be copied from
-# /Users/mac/Library/Preferences/MAXON/CINEMA 4D R17_89538A46/plugins/ePMV/mgl64/MGLToolsPckgs/numpy" to
+#
+# "oldnumeric" folder must be copied from:
+# /Users/mac/Library/Preferences/MAXON/CINEMA 4D R17_89538A46/plugins/ePMV/mgl64/MGLToolsPckgs/numpy/"
+# to:
 # "/Users/mac/anaconda/lib/python2.7/site-packages/numpy" to get the Collada stuff to work
+#
+#  The "anaconda" python interpreter package should be installed
+#
+
 
 from Bio.PDB.PDBParser import PDBParser
 # from Bio.PDB.PDBList import PDBList
@@ -39,20 +44,17 @@ sys.path.insert(0, "/Users/mac/Library/Preferences/MAXON/CINEMA 4D R17_89538A46/
 print("hello")
 
 # cwd = os.getcwd() + os.sep
-model_dir = '/Users/mac/Documents/Models/jitin_project/'
-csvname = "jitin_project"
-recipe_name = model_dir + "RECIPE_" + csvname + ".json"
-csvpath = model_dir + csvname + ".csv"
+model_dir = '/Users/mac/Documents/Models/jitin_project/jitin5/'
+csvname = "jitin5" # don't write ".csv"!
+surface = 'jsphere5' # don't include ".dae" extension NAME OF MESH IN C4D MUST MATCH FILENAME
 
 boundingBox = '[[100, 100, 100],[900, 900, 900]]' # This doesn't really matter - gets adjusted automatically
-
-surface = 'Sphere2' # don't include ".dae" extension NAME OF EXPORTED MESH MUST MATCH FILENAME
-
-pdbpath = model_dir + 'PDB' + os.sep
-
 cluster_radius = 'variable'  # radius of spheres in clustered model (min: 5) - doesn't work if it's too small (e.g. nothing lower than 5 worked when I tried it)
 print('cluster_radius = ' + str(cluster_radius))
 
+pdbpath = model_dir + 'PDB' + os.sep
+recipe_name = model_dir + "RECIPE_" + csvname + ".json"
+csvpath = model_dir + csvname + ".csv"
 
 # noinspection PyUnresolvedReferences
 def coarseMolSurface(coords, radii, resolution, XYZd=(32, 32, 32), isovalue=6.0, padding=0.0, name='CoarseMolSurface',
