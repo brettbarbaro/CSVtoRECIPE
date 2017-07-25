@@ -5,12 +5,12 @@ Created on Friday, July 8, 2016
 updated 20160816
 """
 
-# input: a csv file with at least columnns headed: INCLUDE, NAME HANDLE, MOL, PDB
+# input: a csv file with at least columns headed: INCLUDE, NAME, HANDLE, MOLARITY, PDB
 # outputs: ingredient .json files for all of the proteins, one .json file for the recipe, downloads pdb files
 # when all of this is done, autoPACK can build a model with the RECIPE_...json file.
 # handles must be in proper format - not sure of criteria
 # PDBIDs must be in proper format: four character codes
-# PDBID's work as handles
+# PDBIDs work as handles
 #
 # "oldnumeric" folder must be copied from:
 # /Users/mac/Library/Preferences/MAXON/CINEMA 4D R17_89538A46/plugins/ePMV/mgl64/MGLToolsPckgs/numpy/"
@@ -44,22 +44,24 @@ sys.path.insert(0, "/Users/mac/Library/Preferences/MAXON/CINEMA 4D R17_89538A46/
 print("hello")
 
 # cwd = os.getcwd() + os.sep
-model_dir = '/Users/mac/Documents/Models/jitin_project/jitin5/'
-csvname = "jitin5" # don't write ".csv"!
-surface = 'jsphere5' # don't include ".dae" extension NAME OF MESH IN C4D MUST MATCH FILENAME
+model_dir = '/Users/mac/Documents/OLSON/Models/blood_plasma/'  # include terminal /
+csvname = "blood_plasma"  # don't write ".csv"!
+compartment_dae = False  # don't include ".dae" extension NAME OF MESH IN C4D MUST MATCH FILENAME
 
-boundingBox = '[[100, 100, 100],[900, 900, 900]]' # This doesn't really matter - gets adjusted automatically
-cluster_radius = 'variable'  # radius of spheres in clustered model (min: 5) - doesn't work if it's too small (e.g. nothing lower than 5 worked when I tried it)
-print('cluster_radius = ' + str(cluster_radius))
+boundingBox = '[[-1750, -1750, 0],[1750, 1750, 100]]'  # When working with dae-defined compartments, this gets adjusted automatically
+tree_sphere_radius = 10  # radius of spheres in spheretree clustered model (min: 5) - doesn't work if it's too small (e.g. nothing lower than 5 worked when I tried it); too big is also not good because it becomes low resolution
+print('tree_sphere_radius = ' + str(tree_sphere_radius))
 
 pdbpath = model_dir + 'PDB' + os.sep
 recipe_name = model_dir + "RECIPE_" + csvname + ".json"
 csvpath = model_dir + csvname + ".csv"
 
-# noinspection PyUnresolvedReferences
+
+# noinspection PyUnresolvedReferences,PyUnusedLocal,PyUnusedLocal,PyUnusedLocal
 def coarseMolSurface(coords, radii, resolution, XYZd=(32, 32, 32), isovalue=6.0, padding=0.0, name='CoarseMolSurface',
                      geom=None):
     print('coarseMolSurface')
+    print('RESOLUTION = ' + str(resolution))
     from UTpackages.UTblur import blur
     if radii is None:
         radii = np.ones(len(coords)) * 1.8
@@ -100,6 +102,7 @@ def coarseMolSurface(coords, radii, resolution, XYZd=(32, 32, 32), isovalue=6.0,
     return vert, norm, tri
 
 
+# noinspection PyUnusedLocal
 def simpleCollada(name, v, f, n, filename):
     print('simpleCollada: ' + name)
     mesh = Collada()
@@ -128,6 +131,7 @@ def simpleCollada(name, v, f, n, filename):
 
 def generateDAEFromPDB(name, coords, filename, resolution):
     print('generateDAEFromPDB: ' + name)
+    print('RESOLUTION = ' + str(resolution))
     name = name
     radii = np.array([1.3, ] * len(coords))
     vert, norm, tri = coarseMolSurface(coords, radii, resolution, XYZd=[32, 32, 32], isovalue=6.0, padding=0.0,
@@ -135,6 +139,7 @@ def generateDAEFromPDB(name, coords, filename, resolution):
     simpleCollada(name, vert, tri, [], filename)
 
 
+# noinspection PyUnusedLocal
 def handleFix(handle):
     handle = handle.replace('.', '_')
     handle = handle.replace(' ', '_')
@@ -156,10 +161,11 @@ def handleFix(handle):
     handle = handle.replace('>', '_')
     handle = handle.replace('^', '_')
     handle = handle.replace('%', '_')
-    handle = handle.replace('-', '_')  # left these open to add more blacklisted characters later
+    handle = handle.replace('-', '_')
 
-    x = 1  # this routine adds a number to the handle if it's been used before
+    x = 1  # this routine adds a number to the handle if it's been used before - e.g. "unknown protein"
     test_handle = handle
+    # noinspection PyUnusedLocal
     for handles in handle_list:
         if test_handle not in handle_list:
             handle_list.append(test_handle)
@@ -205,7 +211,7 @@ if not os.path.isdir(model_dir + 'PDB'):
 
 # given PDB ID and path of folder to store files('C:\\Users\\User\\Desktop\\pdbFiles')
 # writes PDB file into given location with file name "pdbid.pdb" - this code was written by Jared Truong
-def write_pdbFile(pdbid, pdbfilepath):
+def write_pdbFile(pdbid, pdbfilepath):  # This may not identify non-files any more - PDB has changed 20170720
     print('write_pdbFile')
     data = fetch_pdb(pdbid)
     if data:
@@ -259,8 +265,8 @@ Created on Wed Aug 10 16:32:09 2016
 
 @author: Ludovic Autin, Brett Barbaro, Jared Truong
 
-Headers on .csv files must include "HANDLE", "PDB","MOL", "MW", and "NAME"
-Entries without "NAME" or where "MOL" is absent or 0 are skipped.
+Headers on .csv files must include "HANDLE", "PDB", "MOLARITY", and "NAME"
+Entries without "NAME" or where "MOLARITY" is absent or 0 are skipped.
 Entries without "PDB" create spheres with volume based on "MW".
 
 """
@@ -272,105 +278,59 @@ def getRadiusFromMW(mw):
     return math.pow((3 * V) / (4 * math.pi), 1.0 / 3.0)
 
 
+# noinspection PyUnusedLocal,PyUnusedLocal,PyUnusedLocal,PyUnusedLocal
 def buildProxy(handle, pdbid, cluster_radius, pdbfn, surface=False, overwrite=False):  # Ludo's code, modified by Brett
     print('buildProxy for ' + handle)
-    # read the pdb
-    # build cluster
-    # pass pos/radii
-    # check for CA only ?
     overwrite = True
     mesh = []
-    # structure_id = pdbid
     center = [0, 0, 0]
     atoms_coord = []
     atoms_coord_centerd = []
+    # noinspection PyUnusedLocal
     resolution = -0.1
-    xml = None
-    # name = name.split("-")[0]
-    #    fname = name.split("-")[0]
-    # print 'start fetch'
-    # pdbid = fetch.retrieve_pdb_file(structure_id) # this method fails about half the time
-    # print 'end fetch'
-
-    #    if len(pdbid) == 4 :
-    #        if surface :
-    #            pdbid = getOPM(pdbid)
-    #            if pdbid == "":
-    #                temp_pdbid = fetch.retrieve_pdb_file(structure_id)
-    #                pdbid = computeOPM(temp_pdbid,pdbid)
-    #        else :
-    #            pdbid = fetch.retrieve_pdb_file(structure_id)
-    #        fname = pdbid
-    #    else :
-    #        #parse from protein model portal
-    #        pdbid = queryPMP(pdbid,name)
-    #        fname = name
-    #        if surface and pdbid != "":
-    #           pdbid = computeOPM(pdbid,name)
-    #        #http://salilab.org/modbase/retrieve/modbase?databaseID=P21812
-    #    if pdbid == "" :
-    #        #gather the radius at least
-    #        pdbid = 'null'
-    #        R = getRadiusFromMW(mw)
-    #        print np.array([[0,0,0]])
-    #        return [[0,0,0]],[[R]],R,[],[],pdbfn, np.array([[0,0,0]])
-
+    # xml = None  # BB not sure what this is for 20170720
     if not os.path.isfile(model_dir + handle + "_cl.indpolvert") or overwrite:
         pdb_struct = parser.get_structure(pdbid, pdbfn)
+        atom_multiplier = 1
         for m in pdb_struct.get_models():
             residue_num = 0
             atoms_coord = [atom.coord.tolist() for atom in m.get_atoms() if atom.parent.resname != "DUM"]  #
+            if not atoms_coord:
+                print(pdbid, "not found in pdb")
+                return None
             atom_num = len(atoms_coord)
+            # noinspection PyUnusedLocal
             for residues in m.get_residues():
                 residue_num += 1
             print('residue_num = ' + str(residue_num))
             print('atoms_coord = ' + str(atom_num))
             if atom_num < 4 * residue_num:
-                resolution = -0.05  # changes resolution for alpha-carbon-only structures
+                if atom_num == residue_num:
+                    resolution = -0.02  # determined by eye
+                    atom_multiplier = 7.66  # back-of-envelope calculation using 1b5s.pdb
+                    print('ALPHA-CARBON-ONLY DETECTED - RESOLUTION SET TO ' + str(resolution) + ', NUMBER OF ATOMS MULTIPLIED BY ' + str(atom_multiplier))
+                else:
+                    resolution = -0.06  # THIS IS A GUESS - SHOULD BE FIXED LATER!!!
+                    atom_multiplier = 1.55  # back-of-envelope calculation using 1b5s.pdb
+                    print('BACKBONE-ONLY DETECTED - RESOLUTION SET TO ' + str(resolution) + ', NUMBER OF ATOMS MULTIPLIED BY ' + str(atom_multiplier))
             break  # breaks after first entry
-        if not atoms_coord:
-            print(pdbid, "not found in pdb")
-            return None
         center = np.average(atoms_coord, axis=0)  # FIX average position of atoms, weighted by distribution, but not MW
         atoms_coord_centerd = np.array(atoms_coord) - center
         R = np.linalg.norm(atoms_coord_centerd,
                            axis=1).max()  # R is encapsulating radius - just length of longest vector
-
-        #        if cluster_radius == 0:
-        #            centroids = atoms_coord_centerd
-        #            nProxy = len(atoms_coord_centerd)
-        #            cluster_radius = 1
-        #            return centroids.tolist(), [(np.ones(nProxy)*cluster_radius).tolist(),], R, mesh, pdbfn, center, atoms_coord_centerd
-
-        V = len(atoms_coord) * 10.0 * 1.21  # bbhelp - why * 10???
-
+        V = len(atoms_coord) * 10.0 * 1.21 * atom_multiplier  # bbhelp - why * 10???
         if cluster_radius == 'variable':
             nProxy = 5
             Vproxy = float(V / 5)
-            cluster_radius = (((Vproxy * 3) / (math.pi * 4)) ** (
-                1. / 3)) * 1.2  # *1.2 is to increase radius a bit so the spheres will touch. there is no support for this.
+            cluster_radius = (((Vproxy * 3) / (math.pi * 4)) ** (1. / 3)) * 1.2  # *1.2 is to increase radius a bit so the spheres will touch. there is no support for this.
         else:
-            Vproxy = 4 * math.pi * (cluster_radius * cluster_radius * cluster_radius) / 3.0
-            nProxy = int(round(V / Vproxy))
-            print("clusters:", nProxy, "   atoms:", len(atoms_coord))
-        if nProxy == 0:
-            nProxy = 1
-            # ~(1.21 x MW) A**3/molecule
-            # V=4*math.pi*(r*r*r)/3.0
-            # r =  math.pow((3*V)/(4*math.pi),1.0/3.0)
-            # r = math.pow(r3,1.0/3.0)
-            # cluster
-            #	0.73 cm**3/g  x  10**24 A**3/cm**3  x  molecular weight g/mole
-            #	--------------------------------------------------------------
-            #			 6.02 x 10**23 molecules/mole
+            Vproxy = 4/3.0 * math.pi * (cluster_radius * cluster_radius * cluster_radius)
+            nProxy = int(round(V / Vproxy)) + 1  # int() truncates toward 0, +1 prevents nProxy==0, and probably better in general to have more spheres than less
+        print("clusters: " + str(nProxy) + ";   atoms: " + str(len(atoms_coord)))
         centroids, _ = kmeans(atoms_coord_centerd, nProxy)
         print('kmeans completed')
-        nProxy = len(
-            centroids)  # this is so they are equal in number - kmeans sometimes does not produce nProxy centroids, especially when cluster_radius is low (e.g. <5)
-        # mesh = coarseMolSurface(atoms_coord_centerd.tolist(),None)
-        # msms ?
+        nProxy = len(centroids)  # this is so they are equal in number - kmeans sometimes does not produce nProxy centroids, especially when cluster_radius is low (e.g. <5)
         generateDAEFromPDB(handle, atoms_coord_centerd, model_dir + handle + "_coarse.dae", resolution)
-
         center = center.tolist()
         centroids = centroids.tolist()
     else:
@@ -381,11 +341,14 @@ def buildProxy(handle, pdbid, cluster_radius, pdbfn, surface=False, overwrite=Fa
     return centroids, [(np.ones(nProxy) * cluster_radius).tolist(), ], R, mesh, pdbfn, center, atoms_coord_centerd
 
 
+# noinspection PyUnusedLocal
 def saveDejaVuMesh(pdb, faces, vertices):  # Ludo's code, modified by Brett NOTE: .indpolvert must have at least three lines, because cellPACK is expecting triangles.
     #    if os.path.isfile(model_dir + pdbid + '.indpolvert'):
     #        return
-    np.savetxt(model_dir + 'PDB/' + str(pdb) + os.sep + str(pdb) + ".indpolvert", vertices)  # including all atom positions doesn't significantly slow down results
-    np.savetxt(model_dir + 'PDB/' + str(pdb) + os.sep + str(pdb) + ".indpolface", [])  # this is a dummy file - autopack needs it to read in DejaVu
+    np.savetxt(model_dir + 'PDB/' + str(pdb) + os.sep + str(pdb) + ".indpolvert",
+               vertices)  # including all atom positions doesn't significantly slow down results
+    np.savetxt(model_dir + 'PDB/' + str(pdb) + os.sep + str(pdb) + ".indpolface",
+               [])  # this is a dummy file - autopack needs it to read in DejaVu
 
 
 # pl = PDBList(pdb=pdbpath)
@@ -401,7 +364,7 @@ parser = PDBParser(PERMISSIVE=True, QUIET=True)  # QUIET=True suppresses warning
 
 def writeIngredient(handle, pdb, molarity, mw):
     print('write_Ingredient ' + handle)
-    pdbfn = pdbpath + str(pdb) + os.sep + str(pdb) + '.pdb'
+    pdbfn = pdbpath + str(pdb) + '.pdb'
     print(pdbfn)
     print(pdb)
 
@@ -410,7 +373,7 @@ def writeIngredient(handle, pdb, molarity, mw):
         proxy = [[0, 0, 0]], [[R]], R, [], [], pdbfn, [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
         pdb = 'null'
     else:
-        proxy = buildProxy(handle, pdb, cluster_radius, pdbfn, surface=False, overwrite=True)
+        proxy = buildProxy(handle, pdb, tree_sphere_radius, pdbfn, surface=False, overwrite=True)
 
     positions = proxy[0]
     atoms_coord_centerd = proxy[6]
@@ -426,7 +389,7 @@ def writeIngredient(handle, pdb, molarity, mw):
     ingredient.write(str('    "partners_position": [],\n'))
     ingredient.write(str('    "weight": 0.20000000000000001,\n'))
     ingredient.write(str('    "color": [\n'))
-    ingredient.write(str('        ' + str(random.random()) + ',\n'))  # color doesn't matter at this point (20160816) so I'm picking green!
+    ingredient.write(str('        ' + str(random.random()) + ',\n'))  # random color
     ingredient.write(str('        ' + str(random.random()) + ',\n'))
     ingredient.write(str('        ' + str(random.random()) + '\n'))
     ingredient.write(str('    ],\n'))
@@ -443,7 +406,7 @@ def writeIngredient(handle, pdb, molarity, mw):
     ingredient.write(str('    "nbMol": 0,\n'))
     ingredient.write(str('    "jitterMax": [\n'))
     ingredient.write(str('        0.20000000000000001,\n'))
-    ingredient.write(str('        0.10000000000000001,\n'))
+    ingredient.write(str('        0.20000000000000001,\n'))  # what should jitterMax settings be?
     ingredient.write(str('        0.20000000000000001\n'))
     ingredient.write(str('    ],\n'))
     ingredient.write(str('    "packingPriority": 0,\n'))
@@ -532,13 +495,13 @@ def writeRecipe():
      "cytoplasme":{
       "ingredients":{
     '''))
-    if surface:
+    if compartment_dae:
         recipe.write(str('''}
      },
      "compartments":{
-      "''' + surface + '''":{
-       "geom":"''' + surface + '''.dae",
-       "name":"''' + surface + '''",
+      "''' + str(compartment_dae) + '''":{
+       "geom":"''' + str(compartment_dae) + '''.dae",
+       "name":"''' + str(compartment_dae) + '''",
        "surface":{
         "ingredients":{}
        },
@@ -552,17 +515,21 @@ def writeRecipe():
         include = all_data[x][headers['INCLUDE']]
         handle = str(all_data[x][headers['HANDLE']])
         pdb = all_data[x][headers['PDB']]
-        pdb = pdb.split("_")[0]  # gets rid of any "_X" after PDB name
+        # pdb = pdb.split("_")[0]  # gets rid of any "_X" after PDB name
+        # if not pdb:
+        #     pdb = 'pdb' + str(x)
         print('pdb = ' + pdb)
-        if not pdb:
-            pdb = 'pdb' + str(x)
-        print('pdb = ' + pdb)
-        molarity = all_data[x][headers['MOL']]
-        mw = all_data[x][headers['MW']]
+        molarity = all_data[x][headers['MOLARITY']]
+        mw = False
+        if 'MW' in headers:
+            mw = all_data[x][headers['MW']]
         if include and handle and molarity and (float(molarity) > 0):  # if there is no handle in the .csv file, or if molarity=0, the ingredient is skipped - if there is no molarity listed, then an ingredient is created whose molarity can be adjusted later
+            if pdb and not os.path.isfile(pdbpath + str(pdb) + '.pdb'):
+                write_pdbFile(pdb, pdbpath)  # download it to PDB directory
             if pdb and not os.path.isdir(model_dir + 'PDB/' + pdb):  # if the PDB's specific directory is not already there
                 os.mkdir(model_dir + 'PDB/' + pdb)
                 print('making directory for ' + pdb)
+                newfile = 0
                 if not os.path.isfile(pdbpath + str(pdb) + os.sep + str(pdb) + '.pdb'):
                     newfile = write_pdbFile(pdb, str(pdbpath + pdb + os.sep))  # download it to its directory
                 if not newfile:
@@ -578,9 +545,9 @@ def writeRecipe():
             recipe.write(str('      "include":"' + handle + '.json",\n'))
             recipe.write(str('      "name":"' + handle + '"\n'))
             recipe.write(str('     }'))
-            writeIngredient(handle, pdb, molarity, mw)
+            writeIngredient(handle, pdb, molarity, mw=0)
 
-    if surface:
+    if compartment_dae:
         recipe.write(str('''
         }
        }'''))
