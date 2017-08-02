@@ -5,12 +5,14 @@ Created on Friday, July 8, 2016
 updated 20160816
 """
 
-# input: a csv file with at least columns headed: INCLUDE, HANDLE, MOLARITY, PDB
+# input: csv file, top row has headers. Possible headers (must be written exactly):
+# INCLUDE - only
+# NAME, MOLARITY, PDB
 # outputs: ingredient .json files for all of the proteins, one .json file for the recipe, downloads pdb files
 # when all of this is done, autoPACK can build a model with the RECIPE_...json file.
-# handles must be in proper format - not sure of criteria
+# names must be in proper format - not sure of criteria
 # PDBIDs must be in proper format: four character codes
-# PDBIDs work as handles
+# PDBIDs work as names
 #
 # "oldnumeric" folder must be copied from:
 # /Users/mac/Library/Preferences/MAXON/CINEMA 4D R17_89538A46/plugins/ePMV/mgl64/MGLToolsPckgs/numpy/"
@@ -43,12 +45,13 @@ sys.path.insert(0, "/Users/mac/Library/Preferences/MAXON/CINEMA 4D R17_89538A46/
 
 print("hello")
 
-csvpath = '/Users/mac/Documents/OLSON/Models/Blood_Plasma_no_NAME/Blood_Plasma_no_NAME.csv'
+csvpath = '/Users/mac/Documents/OLSON/Models/blood_plasma_3/blood_plasma_3_28.csv'
 overwrite_ingredients = True
+overwrite_dae_files = False
 
 compartment_dae = False  # don't include ".dae" extension NAME OF MESH IN C4D MUST MATCH FILENAME
 
-boundingBox = '[[-1750, -1750, -50],[1750, 1750, 50]]'  # When working with dae-defined compartments, this gets adjusted automatically
+boundingBox = '[[-1750, -1750, -25],[1750, 1750, 25]]'  # When working with dae-defined compartments, this gets adjusted automatically
 tree_sphere_radius = 10  # radius of spheres in spheretree clustered model (min: 5) - doesn't work if it's too small (e.g. nothing lower than 5 worked when I tried it); too big is also not good because it becomes low resolution
 print('tree_sphere_radius = ' + str(tree_sphere_radius))
 
@@ -63,6 +66,8 @@ recipe_name = model_dir + "RECIPE_" + csvname + ".json"
 
 # import data from csv file - Brett
 all_data = []
+name_list = [None]
+
 with open(csvpath, 'rU') as csvfile:  # need to open the file in Universal mode so it can read Mac Excel output .csv
     spamreader = csv.reader(csvfile)
     for row in spamreader:
@@ -71,17 +76,53 @@ with open(csvpath, 'rU') as csvfile:  # need to open the file in Universal mode 
 headers = {'test': 'headers test works'}
 print(headers['test'])
 for num in range(len(all_data[0])):
-    headers[all_data[0][num]] = num  # This establishes a dictionary with the header names in it. After this, columns can be indicated with e.g. "handle = all_data[x][headers['HANDLE']]". The headers must be correctly labeled.
+    headers[all_data[0][num]] = num  # This establishes a dictionary with the header names in it. After this, columns can be indicated with e.g. "name = all_data[x][headers['NAME']]". The headers must be correctly labeled.
 
 if not os.path.isdir(model_dir + 'PDB'):
     print('making PDB directory')
     os.mkdir(model_dir + 'PDB')
 
 
+def generateDAEFromPDB(name, coords, filename, resolution):
+    print('generateDAEFromPDB: ' + name)
+    print('RESOLUTION = ' + str(resolution))
+    name = name
+    radii = np.array([1.3, ] * len(coords))
+    vert, norm, tri = coarseMolSurface(coords, radii, resolution, XYZd=[32, 32, 32], isovalue=6.0, padding=0.0,
+                                       name='CoarseMolSurface', geom=None)
+    simpleCollada(name, vert, tri, [], filename)
+
+
+# noinspection PyUnusedLocal
+def simpleCollada(name, v, f, n, filename):
+    print('simpleCollada: ' + name)
+    mesh = Collada()
+    effect = material.Effect("effect0", [], "phong", diffuse=(1, 0, 0), specular=(0, 1, 0))
+    mat = material.Material("material0", "mymaterial", effect)
+    mesh.effects.append(effect)
+    mesh.materials.append(mat)
+    vert_src = source.FloatSource(name + "-v-array", np.array(v).flatten(), ('X', 'Y', 'Z'))
+    geom = geometry.Geometry(mesh, "geometry0", name, [vert_src])
+    input_list = source.InputList()
+    input_list.addInput(0, 'VERTEX', "#" + name + "-v-array")
+    triset = geom.createTriangleSet(np.array(f).flatten(), input_list, "materialref")
+    geom.primitives.append(triset)
+    mesh.geometries.append(geom)
+    matnode = scene.MaterialNode("materialref", mat, inputs=[])
+    geomnode = scene.GeometryNode(geom, [matnode])
+    node = scene.Node(name, children=[geomnode])
+    myscene = scene.Scene("myscene", [node])
+    mesh.scenes.append(myscene)
+    mesh.scene = myscene
+    mesh.assetInfo.unitname = "centimeter"
+    mesh.assetInfo.unitmeter = 0.01
+    mesh.assetInfo.upaxis = "Y_UP"
+    mesh.write(filename)
+
+
 # noinspection PyUnresolvedReferences,PyUnusedLocal,PyUnusedLocal,PyUnusedLocal
 def coarseMolSurface(coords, radii, resolution, XYZd=(32, 32, 32), isovalue=6.0, padding=0.0, name='CoarseMolSurface', geom=None):
     print('coarseMolSurface')
-    print('RESOLUTION = ' + str(resolution))
     from UTpackages.UTblur import blur
     if radii is None:
         radii = np.ones(len(coords)) * 1.8
@@ -120,91 +161,50 @@ def coarseMolSurface(coords, radii, resolution, XYZd=(32, 32, 32), isovalue=6.0,
 
 
 # noinspection PyUnusedLocal
-def simpleCollada(name, v, f, n, filename):
-    print('simpleCollada: ' + name)
-    mesh = Collada()
-    effect = material.Effect("effect0", [], "phong", diffuse=(1, 0, 0), specular=(0, 1, 0))
-    mat = material.Material("material0", "mymaterial", effect)
-    mesh.effects.append(effect)
-    mesh.materials.append(mat)
-    vert_src = source.FloatSource(name + "-v-array", np.array(v).flatten(), ('X', 'Y', 'Z'))
-    geom = geometry.Geometry(mesh, "geometry0", name, [vert_src])
-    input_list = source.InputList()
-    input_list.addInput(0, 'VERTEX', "#" + name + "-v-array")
-    triset = geom.createTriangleSet(np.array(f).flatten(), input_list, "materialref")
-    geom.primitives.append(triset)
-    mesh.geometries.append(geom)
-    matnode = scene.MaterialNode("materialref", mat, inputs=[])
-    geomnode = scene.GeometryNode(geom, [matnode])
-    node = scene.Node(name, children=[geomnode])
-    myscene = scene.Scene("myscene", [node])
-    mesh.scenes.append(myscene)
-    mesh.scene = myscene
-    mesh.assetInfo.unitname = "centimeter"
-    mesh.assetInfo.unitmeter = 0.01
-    mesh.assetInfo.upaxis = "Y_UP"
-    mesh.write(filename)
+def nameFix(name):
+    name = name.replace('.', '_')
+    name = name.replace(' ', '_')
+    name = name.replace(',', '_')
+    name = name.replace('/', '-')
+    name = name.replace('(', '_')
+    name = name.replace(')', '_')
+    name = name.replace('|', '_')
+    name = name.replace('[', '_')
+    name = name.replace(']', '_')
+    name = name.replace(';', '_')
+    name = name.replace(':', '_')  # characters up to this point don't work. after here, haven't tested.
+    name = name.replace('{', '_')
+    name = name.replace('}', '_')
+    name = name.replace('\\', '_')
+    name = name.replace('?', '_')
+    name = name.replace('<', '_')
+    name = name.replace('>', '_')
+    name = name.replace('^', '_')
+    name = name.replace('%', '_')
+    name = name.replace('-', '_')
 
-
-def generateDAEFromPDB(name, coords, filename, resolution):
-    print('generateDAEFromPDB: ' + name)
-    print('RESOLUTION = ' + str(resolution))
-    name = name
-    radii = np.array([1.3, ] * len(coords))
-    vert, norm, tri = coarseMolSurface(coords, radii, resolution, XYZd=[32, 32, 32], isovalue=6.0, padding=0.0,
-                                       name='CoarseMolSurface', geom=None)
-    simpleCollada(name, vert, tri, [], filename)
-
-handle_list = [None]
-
-
-# noinspection PyUnusedLocal
-def handleFix(handle):
-    handle = handle.replace('.', '_')
-    handle = handle.replace(' ', '_')
-    handle = handle.replace(',', '_')
-    handle = handle.replace('/', '-')
-    handle = handle.replace('(', '_')
-    handle = handle.replace(')', '_')
-    handle = handle.replace('|', '_')
-    handle = handle.replace('[', '_')
-    handle = handle.replace(']', '_')
-    handle = handle.replace(';', '_')
-    handle = handle.replace(':',
-                            '_')  # have tested characters up to this point - don't work. after here, haven't tested.
-    handle = handle.replace('{', '_')
-    handle = handle.replace('}', '_')
-    handle = handle.replace('\\', '_')
-    handle = handle.replace('?', '_')
-    handle = handle.replace('<', '_')
-    handle = handle.replace('>', '_')
-    handle = handle.replace('^', '_')
-    handle = handle.replace('%', '_')
-    handle = handle.replace('-', '_')
-
-    x = 1  # this routine adds a number to the handle if it's been used before - e.g. "unknown protein"
-    test_handle = handle
+    x = 1  # this routine adds a number to the name if it's been used before - e.g. "unknown protein"
+    test_name = name
     # noinspection PyUnusedLocal
-    for handles in handle_list:
-        if test_handle not in handle_list:
-            handle_list.append(test_handle)
+    for names in name_list:
+        if test_name not in name_list:
+            name_list.append(test_name)
             break
         else:
             x += 1
-            test_handle = str(handle + '_' + str(x))
-    handle = test_handle
+            test_name = str(name + '_' + str(x))
+    name = test_name
 
-    return handle
+    return name
     # import datetime   # optional for timestamp if desired
 
 
-# given PDB ID and path of folder to store files('C:\\Users\\User\\Desktop\\pdbFiles')
-# writes PDB file into given location with file name "pdbid.pdb" - this code was written by Jared Truong
-def write_pdbFile(pdbid, pdbfilepath):  # This may not identify non-files any more - PDB has changed 20170720
+# given PDB ID and path of folder to store files('C:\\Users\\User\\Desktop\\pdbFiles'), writes PDB file into given location with file name "pdbid.pdb" - this code was written by Jared Truong
+def write_pdbFile(pdbid, pdbfilepath):
     print('write_pdbFile')
     data = fetch_pdb(pdbid)
     print('len(data) = ' + str(len(data)))
-    if len(data) > 1000:
+    if len(data) > 500:  # 20170801 pdb has started returning short files, ~250 bytes, when a file is not found. This skips those.
         pdbfile = open(str(pdbfilepath) + str(pdbid) + '.pdb', 'w')
         pdbfile.write(data)
         pdbfile.close()
@@ -226,22 +226,24 @@ def getRadiusFromMW(mw):
 
 
 # noinspection PyUnusedLocal,PyUnusedLocal,PyUnusedLocal,PyUnusedLocal
-def buildProxy(handle, pdb, cluster_radius, pdbfn, mw, surface=False, overwrite=False):  # Ludo's code, modified by Brett
-    print('buildProxy for ' + handle)
+def buildProxy(name, pdb, cluster_radius, pdbfn, mw, surface=False, overwrite=False):  # Ludo's code, modified by Brett
+    print('buildProxy for ' + name)
     overwrite = True
     mesh = []
     center = [0, 0, 0]
     atoms_coord = []
     atoms_coord_centerd = []
+    R = 0
     # noinspection PyUnusedLocal
     resolution = -0.1
     # xml = None  # BB not sure what this is for 20170720
-    # if not os.path.isfile(model_dir + handle + "_cl.indpolvert") or overwrite:
-    if pdb == "null":
-        makeSphericalDae(handle, mw)
+    # if not os.path.isfile(model_dir + name + "_cl.indpolvert") or overwrite:
+    if not os.path.isfile(pdbfn):
         positions = [[0, 0, 0]]
         R = getRadiusFromMW(mw)
         radii = [[R]]
+        if not os.path.isfile(model_dir + name + '_coarse.dae') or overwrite_dae_files is True:
+            makeSphericalDae(name, R)
         # proxy = [[0, 0, 0]], [[R]], R, [], [], pdbfn, [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
     else:
         pdb_struct = parser.get_structure(pdb, pdbfn)
@@ -270,7 +272,8 @@ def buildProxy(handle, pdb, cluster_radius, pdbfn, mw, surface=False, overwrite=
             break  # breaks after first entry
         center = np.average(atoms_coord, axis=0)  # FIX average position of atoms, weighted by distribution, but not MW
         atoms_coord_centerd = np.array(atoms_coord) - center
-        generateDAEFromPDB(handle, atoms_coord_centerd, model_dir + handle + "_coarse.dae", resolution)
+        if not os.path.isfile(model_dir + name + '_coarse.dae') or overwrite_dae_files is True:
+            generateDAEFromPDB(name, atoms_coord_centerd, model_dir + name + "_coarse.dae", resolution)
         R = np.linalg.norm(atoms_coord_centerd, axis=1).max()  # R is encapsulating radius - just length of longest vector
         V = len(atoms_coord) * 10.0 * 1.21 * atom_multiplier  # bbhelp - why * 10???
         if cluster_radius == 'variable':
@@ -288,11 +291,8 @@ def buildProxy(handle, pdb, cluster_radius, pdbfn, mw, surface=False, overwrite=
         positions = centroids.tolist()
         radii = [(np.ones(nProxy) * cluster_radius).tolist(), ]
 
-# else:
-#     centroids = np.loadtxt(model_dir + handle + "_cl.indpolvert")
-#     nProxy = len(centroids)
-#     R = np.linalg.norm(centroids, axis=1).max() + cluster_radius
-#     centroids = centroids.tolist()
+        saveDejaVuMesh(pdb, [], atoms_coord_centerd)  # writes DejaVu mesh containing locations of all atoms
+
     return positions, radii, R, mesh, pdbfn, center, atoms_coord_centerd
 
 
@@ -304,12 +304,12 @@ def saveDejaVuMesh(pdb, faces, vertices):  # Ludo's code, modified by Brett NOTE
     np.savetxt(model_dir + 'PDB/' + str(pdb) + os.sep + str(pdb) + ".indpolface", faces)  # this is a dummy file - autopack needs it to read in DejaVu
 
 
-# writes a tetrahedral dae file as a proxy for every handle
-def makeTetrahedralDae(handle, mw):
+# writes a tetrahedral dae file as a proxy for every name
+def makeTetrahedralDae(name, mw):
     print('makeTetrahedralDae')
     radius = getRadiusFromMW(mw)
 
-    dae = open(model_dir + "%s_coarse.dae" % handle, "w")
+    dae = open(model_dir + "%s_coarse.dae" % name, "w")
 
     dae.write(str('<?xml version="1.0"?>\n'))
     dae.write(str('<COLLADA xmlns="http://www.collada.org/2005/11/COLLADASchema" version="1.4.1">\n'))
@@ -368,13 +368,13 @@ def makeTetrahedralDae(handle, mw):
     dae.write(str('    </library_geometries>\n'))
     dae.write(str('    <library_visual_scenes>\n'))
     dae.write(str('        <visual_scene id="ID1">\n'))
-    dae.write(str('            <node id="ID2" name="' + handle + '">\n'))
+    dae.write(str('            <node id="ID2" name="' + name + '">\n'))
     dae.write(str('                <translate sid="translate">0 0 -0</translate>\n'))
     dae.write(str('                <rotate sid="rotateY">0 1 0 -0</rotate>\n'))
     dae.write(str('                <rotate sid="rotateX">1 0 0 0</rotate>\n'))
     dae.write(str('                <rotate sid="rotateZ">0 0 1 -0</rotate>\n'))
     dae.write(str('                <scale sid="scale">1 1 1</scale>\n'))
-    dae.write(str('                <node id="ID3" name="' + handle + '">\n'))
+    dae.write(str('                <node id="ID3" name="' + name + '">\n'))
     dae.write(str('                    <translate sid="translate">0 0 -0</translate>\n'))
     dae.write(str('                    <rotate sid="rotateY">0 1 0 -0</rotate>\n'))
     dae.write(str('                    <rotate sid="rotateX">1 0 0 0</rotate>\n'))
@@ -393,11 +393,11 @@ def makeTetrahedralDae(handle, mw):
     dae.close()
 
 
-def makeIcosahedralDae(handle, mw):
+def makeIcosahedralDae(name, mw):
     print('makeIcosahedralDae')
     radius = getRadiusFromMW(mw)
 
-    dae = open(model_dir + "%s_coarse.dae" % handle, "w")
+    dae = open(model_dir + "%s_coarse.dae" % name, "w")
 
     dae.write(str('''<?xml version="1.0"?>
 <COLLADA xmlns="http://www.collada.org/2005/11/COLLADASchema" version="1.4.1">
@@ -456,7 +456,7 @@ def makeIcosahedralDae(handle, mw):
     </library_geometries>
     <library_visual_scenes>
         <visual_scene id="ID1">
-            <node id="ID2" name="''' + handle + '''">
+            <node id="ID2" name="''' + name + '''">
                 <translate sid="translate">0 0 -0</translate>
                 <rotate sid="rotateY">0 1 0 -0</rotate>
                 <rotate sid="rotateX">1 0 0 0</rotate>
@@ -475,12 +475,10 @@ def makeIcosahedralDae(handle, mw):
     dae.close()
 
 
-def makeSphericalDae(handle, mw):
+def makeSphericalDae(name, radius):
     print('makeSphericalDae')
 
-    radius = getRadiusFromMW(mw)
-
-    dae = open(model_dir + '%s_coarse.dae' % handle, 'w')
+    dae = open(model_dir + '%s_coarse.dae' % name, 'w')
 
     dae.write('''<?xml version="1.0"?>
 <COLLADA xmlns="http://www.collada.org/2005/11/COLLADASchema" version="1.4.1">
@@ -539,7 +537,7 @@ def makeSphericalDae(handle, mw):
     </library_geometries>
     <library_visual_scenes>
         <visual_scene id="ID1">
-            <node id="ID2" name="''' + handle + '''">
+            <node id="ID2" name="''' + name + '''">
                 <translate sid="translate">0 0 -0</translate>
                 <rotate sid="rotateY">0 1 0 -0</rotate>
                 <rotate sid="rotateX">1 0 0 0</rotate>
@@ -566,21 +564,18 @@ parser = PDBParser(PERMISSIVE=True, QUIET=True)  # QUIET=True suppresses warning
 # dejavupath = model_dir + 'dejavus' + os.sep
 
 
-def writeIngredient(handle, pdb, molarity, mw, color):
-    print('write_Ingredient ' + handle)
+def writeIngredient(name, pdb, molarity, mw, color):
+    print('write_Ingredient ' + name)
     pdbfn = pdbpath + str(pdb) + '.pdb'
     print(pdbfn)
     print(pdb)
 
-    proxy = buildProxy(handle, pdb, tree_sphere_radius, pdbfn, mw, surface=False, overwrite=True)
+    proxy = buildProxy(name, pdb, tree_sphere_radius, pdbfn, mw, surface=False, overwrite=True)
 
     positions = proxy[0]
-    atoms_coord_centerd = proxy[6]
-    if not pdb == 'null':
-        saveDejaVuMesh(pdb, [], atoms_coord_centerd)
-    #    saveDejaVuMesh(handle + '_cl', "", positions)      # don't think we need to save DejaVu file for clusters - that info is contained in the ingredient files.
+    #    saveDejaVuMesh(name + '_cl', "", positions)      # don't think we need to save DejaVu file for clusters - that info is contained in the ingredient files.
 
-    ingredient = open(model_dir + "%s.json" % handle, "w")
+    ingredient = open(model_dir + "%s.json" % name, "w")
 
     ingredient.write(str('{\n'))
     ingredient.write(str('    "packingMode": "random",\n'))
@@ -619,7 +614,7 @@ def writeIngredient(handle, pdb, molarity, mw, color):
     ingredient.write(str('    "useOrientBias": false,\n'))
     ingredient.write(str('    "rotRange": 6.2831000000000001,\n'))
     ingredient.write(str('    "coordsystem": "left",\n'))
-    ingredient.write(str('    "meshFile": "' + handle + "_coarse.dae" + '",\n'))
+    ingredient.write(str('    "meshFile": "' + name + "_coarse.dae" + '",\n'))
     ingredient.write(str('    "orientBiasRotRangeMin": -3.1415926535897931,\n'))
     ingredient.write(str('    "perturbAxisAmplitude": 0.10000000000000001,\n'))
     ingredient.write(str('    "proba_binding": 0.5,\n'))
@@ -630,11 +625,11 @@ def writeIngredient(handle, pdb, molarity, mw, color):
     ingredient.write(str('    ],\n'))
     ingredient.write(str('    "properties": {},\n'))
     ingredient.write(str('    "partners_name": [],\n'))
-    ingredient.write(str('    "name": "' + handle + '",\n'))
+    ingredient.write(str('    "name": "' + name + '",\n'))
     ingredient.write(str('    "positions": [\n'))
     ingredient.write(str('        ' + str(positions) + '\n'))
     ingredient.write(str('    ],\n'))
-    ingredient.write(str('    "meshName": "' + handle + '",\n'))
+    ingredient.write(str('    "meshName": "' + name + '",\n'))
     ingredient.write(str('    "excluded_partners_name": [],\n'))
     ingredient.write(str('    "placeType": "jitter",\n'))
     ingredient.write(str('    "cutoff_surface": 20.052597999572754,\n'))
@@ -676,7 +671,7 @@ def writeRecipe():
     recipe.write(str('  "innerGridMethod":"jordan3",\n'))
     recipe.write(str('  "boundingBox":' + boundingBox + ',\n'))
     recipe.write(str('  "gradients":[],\n'))
-    recipe.write(str('  "smallestProteinSize":100,\n'))
+    recipe.write(str('  "smallestProteinSize":50,\n'))
     recipe.write(str('  "computeGridParams":true,\n'))
     recipe.write(str('  "freePtsUpdateThrehod":0,\n'))
     recipe.write(str('  "pickWeightedIngr":true,\n'))
@@ -711,15 +706,15 @@ def writeRecipe():
 
     for x in range(1, len(all_data)):  # for each entry in the input .csv
         if all_data[x][headers['INCLUDE']]:
-            mw = 35200  # assuming size of 320 aa, 110 Da per aa
-            handle = 'Unnamed_ingredient'
+            mw = 35200  # assuming average human protein size of 320 aa, 110 Da per aa
+            name = 'Unnamed_ingredient'
             pdb = 'null'
             molarity = 0
             color = '0, 0, 0'
-            if 'HANDLE' in headers:
-                handle = str(all_data[x][headers['HANDLE']])
-            if not handle:
-                handle = 'Unnamed_ingredient'
+            if 'NAME' in headers:
+                name = str(all_data[x][headers['NAME']])
+            if not name:
+                name = 'Unnamed_ingredient'
             if 'PDB' in headers:
                 pdb = all_data[x][headers['PDB']]
             if not pdb:
@@ -736,33 +731,31 @@ def writeRecipe():
             if 'COLOR' in headers:
                 color = all_data[x][headers['COLOR']]
             if not color:
-                color = str(random.random()) + ', ' + str(random.random()) + ', ' +str(random.random())
+                color = str(random.random()) + ', ' + str(random.random()) + ', ' + str(random.random())
             # pdb = pdb.split("_")[0]  # gets rid of any "_X" after PDB name
             # if not pdb:
             #     pdb = 'pdb' + str(x)
             print('pdb = ' + pdb)
-            if pdb and not os.path.isfile(pdbpath + str(pdb) + '.pdb'):
+            if not pdb == 'null' and not os.path.isfile(pdbpath + str(pdb) + '.pdb'):
                 write_pdbFile(pdb, pdbpath)  # download it to PDB directory
-            if pdb and not os.path.isdir(model_dir + 'PDB/' + pdb):  # if the PDB's specific directory is not already there
+            if not pdb == 'null' and not os.path.isdir(model_dir + 'PDB/' + pdb):  # if the PDB's specific directory is not already there
                 os.mkdir(model_dir + 'PDB/' + pdb)
                 print('making directory for ' + pdb)
-                newfile = 0
                 if not os.path.isfile(pdbpath + str(pdb) + os.sep + str(pdb) + '.pdb'):
-                    newfile = write_pdbFile(pdb, str(pdbpath + pdb + os.sep))  # download it to its directory
-                if not newfile:
-                    print(pdb + ' NOT FOUND IN PDB')
-                    if not mw:
-                        print('NO PDB OR MW - making 100 aa dummy for ' + pdb)
-                    continue
-            handle = handleFix(handle)
+                    write_pdbFile(pdb, str(pdbpath + pdb + os.sep))  # download it to its directory
+                # if not newfile:
+                #     print(pdb + ' NOT FOUND IN PDB')
+                #     print('NO PDB OR MW - making 320 aa dummy sphere for ' + pdb)
+                #     continue
+            name = nameFix(name)
             if not first:  # the first won't be preceeded by a comma. (the last can't have a comma)
                 recipe.write(str(',\n'))
             first = False
-            recipe.write(str('     "' + handle + '":{\n'))
-            recipe.write(str('      "include":"' + handle + '.json",\n'))
-            recipe.write(str('      "name":"' + handle + '"\n'))
+            recipe.write(str('     "' + name + '":{\n'))
+            recipe.write(str('      "include":"' + name + '.json",\n'))
+            recipe.write(str('      "name":"' + name + '"\n'))
             recipe.write(str('     }'))
-            writeIngredient(handle, pdb, molarity, mw, color)
+            writeIngredient(name, pdb, molarity, mw, color)
 
     if compartment_dae:
         recipe.write(str('''
