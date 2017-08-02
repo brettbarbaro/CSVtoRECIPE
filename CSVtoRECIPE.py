@@ -5,9 +5,13 @@ Created on Friday, July 8, 2016
 updated 20160816
 """
 
-# input: csv file, top row has headers. Possible headers (must be written exactly):
-# INCLUDE - only
-# NAME, MOLARITY, PDB
+# input: csv file, top row has headers. Possible headers (must be written exactly as shown):
+# INCLUDE - only rows with a value under this header will be processed
+# NAME
+# MOLARITY
+# PDB
+# MW
+# COLOR
 # outputs: ingredient .json files for all of the proteins, one .json file for the recipe, downloads pdb files
 # when all of this is done, autoPACK can build a model with the RECIPE_...json file.
 # names must be in proper format - not sure of criteria
