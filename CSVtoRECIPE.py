@@ -49,7 +49,7 @@ sys.path.insert(0, "/Users/mac/Library/Preferences/MAXON/CINEMA 4D R17_89538A46/
 
 print("hello")
 
-csvpath = '/Users/mac/Documents/OLSON/Models/insulin_vesicle/compartment_tests/insulin_vesicle_compartments.csv'
+csvpath = '/Users/mac/Documents/OLSON/Models/insulin_vesicle/compartment_tests/insulin_vesicle_compartments_15.csv'
 overwrite_ingredients = True
 overwrite_dae_files = False
 
@@ -566,7 +566,7 @@ parser = PDBParser(PERMISSIVE=True, QUIET=True)  # QUIET=True suppresses warning
 # dejavupath = model_dir + 'dejavus' + os.sep
 
 
-def writeIngredient(name, pdb, molarity, mw, color):
+def writeIngredient(name, pdb, molarity, mw, color, principalVector='1.0, 0.0, 0.0', offset='0.0, 0.0, 0.0', jitterMax='1,1,1'):
     print('write_Ingredient ' + name)
     pdbfn = pdbpath + str(pdb) + '.pdb'
     print(pdbfn)
@@ -599,11 +599,7 @@ def writeIngredient(name, pdb, molarity, mw, color):
     ingredient.write(str('    "orientBiasRotRangeMax": -3.1415926535897931,\n'))
     ingredient.write(str('    "gradient": "",\n'))
     ingredient.write(str('    "nbMol": 0,\n'))
-    ingredient.write(str('    "jitterMax": [\n'))
-    ingredient.write(str('        0.1,\n'))
-    ingredient.write(str('        0.1,\n'))  # what should jitterMax settings be?
-    ingredient.write(str('        0.1\n'))
-    ingredient.write(str('    ],\n'))
+    ingredient.write(str('    "jitterMax": [' + jitterMax + '],\n'))
     ingredient.write(str('    "packingPriority": 0,\n'))
     ingredient.write(str('    "rotAxis": [\n'))
     ingredient.write(str('        0.0,\n'))
@@ -620,11 +616,8 @@ def writeIngredient(name, pdb, molarity, mw, color):
     ingredient.write(str('    "orientBiasRotRangeMin": -3.1415926535897931,\n'))
     ingredient.write(str('    "perturbAxisAmplitude": 0.10000000000000001,\n'))
     ingredient.write(str('    "proba_binding": 0.5,\n'))
-    ingredient.write(str('    "principalVector": [\n'))
-    ingredient.write(str('        0.0,\n'))
-    ingredient.write(str('        0.0,\n'))
-    ingredient.write(str('        -1.0\n'))
-    ingredient.write(str('    ],\n'))
+    ingredient.write(str('    "principalVector": [' + principalVector + '],\n'))
+    ingredient.write(str('    "offset": [' + offset + '],\n'))
     ingredient.write(str('    "properties": {},\n'))
     ingredient.write(str('    "partners_name": [],\n'))
     ingredient.write(str('    "name": "' + name + '",\n'))
@@ -673,7 +666,7 @@ def writeRecipe():
     recipe.write(str('  "innerGridMethod":"jordan3",\n'))
     recipe.write(str('  "boundingBox":' + boundingBox + ',\n'))
     recipe.write(str('  "gradients":[],\n'))
-    recipe.write(str('  "smallestProteinSize":10,\n'))
+    recipe.write(str('  "smallestProteinSize":20,\n'))
     recipe.write(str('  "computeGridParams":true,\n'))
     recipe.write(str('  "freePtsUpdateThrehod":0,\n'))
     recipe.write(str('  "pickWeightedIngr":true,\n'))
@@ -689,14 +682,76 @@ def writeRecipe():
     recipe.write(str('''
  "cytoplasme":{
   "ingredients":{
+'''))
+
+    first = True
+
+    for x in range(1, len(all_data)):  # for each entry in the input .csv
+        if all_data[x][headers['INCLUDE']]:
+            mw = ''  # assuming average human protein size of 320 aa, 110 Da per aa
+            name = ''
+            pdb = ''
+            color = ''
+            if 'NAME' in headers:
+                name = str(all_data[x][headers['NAME']])
+            if not name:
+                name = 'Unnamed_ingredient_1'
+            if 'PDB' in headers:
+                pdb = all_data[x][headers['PDB']]
+            if not pdb:
+                pdb = 'null'
+            if 'MW' in headers:
+                mw = all_data[x][headers['MW']]
+            if not mw:
+                mw = '35200'  # assuming size of 320 aa
+            mw = int(mw)
+            if 'MOLARITY' in headers:
+                molarity = all_data[x][headers['MOLARITY']]
+            if 'CYTOPLASM' in headers:
+                molarity = all_data[x][headers['CYTOPLASM']]
+            if not molarity:
+                continue
+            if 'COLOR' in headers:
+                color = all_data[x][headers['COLOR']]
+            if not color:
+                color = str(random.random()) + ', ' + str(random.random()) + ', ' + str(random.random())
+
+            # pdb = pdb.split("_")[0]  # gets rid of any "_X" after PDB name
+            # if not pdb:
+            #     pdb = 'pdb' + str(x)
+            print('pdb = ' + pdb)
+            if not pdb == 'null' and not os.path.isfile(pdbpath + str(pdb) + '.pdb'):
+                write_pdbFile(pdb, pdbpath)  # download it to PDB directory
+            if not pdb == 'null' and not os.path.isdir(
+                                    model_dir + 'PDB/' + pdb):  # if the PDB's specific directory is not already there
+                os.mkdir(model_dir + 'PDB/' + pdb)
+                print('making directory for ' + pdb)
+                if not os.path.isfile(pdbpath + str(pdb) + os.sep + str(pdb) + '.pdb'):
+                    write_pdbFile(pdb, str(pdbpath + pdb + os.sep))  # download it to its directory
+                    # if not newfile:
+                    #     print(pdb + ' NOT FOUND IN PDB')
+                    #     print('NO PDB OR MW - making 320 aa dummy sphere for ' + pdb)
+                    #     continue
+            name = nameFix(name)
+            if not first:  # the first won't be preceeded by a comma. (the last can't have a comma)
+                recipe.write(str(',\n'))
+            first = False
+            recipe.write(str('   "' + name + '":{\n'))
+            recipe.write(str('    "include":"' + name + '.json",\n'))
+            recipe.write(str('    "name":"' + name + '"\n'))
+            recipe.write(str('   }'))
+
+            writeIngredient(name, pdb, molarity, mw, color)
+
+    recipe.write(str('''
   }
  },
  "compartments":{\n'''))
 
     compartments = []
     for header in headers:
-        if header[0] == 'C' and header[1] == '_':
-            compartments.append(header)
+        if header[0:3] == ('CS_' or 'CI_'):
+            compartments.append(header[3:])  # "[3:]" is so compartment name starts after CX_
             print(header + ' compartment detected')
     print('compartments total:')
     print(compartments)
@@ -709,74 +764,155 @@ def writeRecipe():
             recipe.write(str(',\n'))
         first_compartment = False
 
-        recipe.write(str('''  "''' + str(compartment[2:]) + '''":{
-   "geom":"''' + str(compartment[2:]) + '''.dae",
-   "name":"''' + str(compartment[2:]) + '''",
+        recipe.write(str('''  "''' + str(compartment) + '''":{
+   "geom":"''' + str(compartment) + '''.dae",
+   "name":"''' + str(compartment) + '''",
    "surface":{
-   "ingredients":{}
-   },
+    "ingredients":{
+'''))
+#  FOR SURFACE ELEMENTS
+        first = True
+
+        if str('CS_' + compartment) in headers:
+            for x in range(1, len(all_data)):  # for each entry in the input .csv
+                if all_data[x][headers['INCLUDE']]:
+                    mw = ''  # assuming average human protein size of 320 aa, 110 Da per aa
+                    name = ''
+                    pdb = ''
+                    color = ''
+                    principalVector = ''
+                    offset = ''
+                    if 'NAME' in headers:
+                        name = str(all_data[x][headers['NAME']])
+                    if not name:
+                        name = 'Unnamed_ingredient_1'
+                    if 'PDB' in headers:
+                        pdb = all_data[x][headers['PDB']]
+                    if not pdb:
+                        pdb = 'null'
+                    if 'MW' in headers:
+                        mw = all_data[x][headers['MW']]
+                    if not mw:
+                        mw = '35200'  # assuming size of 320 aa, MW of 110 per aa
+                    mw = int(mw)
+                    # if 'MOLARITY' in headers:
+                    #     molarity = all_data[x][headers['MOLARITY']]
+                    # if not molarity:
+                    #     molarity = 0
+                    if 'COLOR' in headers:
+                        color = all_data[x][headers['COLOR']]
+                    if not color:
+                        color = str(random.random()) + ', ' + str(random.random()) + ', ' + str(random.random())
+                    molarity = all_data[x][headers[str('CS_' + compartment)]]
+                    if not molarity:
+                        continue
+                    if 'PRINCIPAL_VECTOR' in headers:
+                        principalVector = all_data[x][headers['PRINCIPAL_VECTOR']]
+                    if not principalVector:
+                        principalVector = '1.0, 0.0, 0.0'
+                    if 'OFFSET' in headers:
+                        offset = all_data[x][headers['OFFSET']]
+                    if not offset:
+                        offset = '0.0, 0.0, 0.0'
+                    if 'JITTER_MAX' in headers:
+                        jitterMax = all_data[x][headers['JITTER_MAX']]
+                    if not jitterMax:
+                        jitterMax = '1.0, 1.0, 1.0'
+                    # pdb = pdb.split("_")[0]  # gets rid of any "_X" after PDB name
+                    # if not pdb:
+                    #     pdb = 'pdb' + str(x)
+                    print('pdb = ' + pdb)
+                    if not pdb == 'null' and not os.path.isfile(pdbpath + str(pdb) + '.pdb'):
+                        write_pdbFile(pdb, pdbpath)  # download it to PDB directory
+                    if not pdb == 'null' and not os.path.isdir(model_dir + 'PDB/' + pdb):  # if the PDB's specific directory is not already there
+                        os.mkdir(model_dir + 'PDB/' + pdb)
+                        print('making directory for ' + pdb)
+                        if not os.path.isfile(pdbpath + str(pdb) + os.sep + str(pdb) + '.pdb'):
+                            write_pdbFile(pdb, str(pdbpath + pdb + os.sep))  # download it to its directory
+                        # if not newfile:
+                        #     print(pdb + ' NOT FOUND IN PDB')
+                        #     print('NO PDB OR MW - making 320 aa dummy sphere for ' + pdb)
+                        #     continue
+                    name = nameFix(name)
+                    if not first:  # the first won't be preceeded by a comma. (the last can't have a comma)
+                        recipe.write(str(',\n'))
+                    first = False
+                    recipe.write(str('     "' + name + '":{\n'))
+                    recipe.write(str('      "include":"' + name + '.json",\n'))
+                    recipe.write(str('      "name":"' + name + '"\n'))
+                    recipe.write(str('     }'))
+
+                    print('OFFSET = ' + offset)
+
+                    writeIngredient(name, pdb, molarity, mw, color, principalVector, offset, jitterMax)
+
+        recipe.write(str('\n    }\n'))  # end of ingredients for surface of this compartment
+        recipe.write(str('   },'))  # end of surface of this compartment
+
+        recipe.write(str('''
    "interior":{
     "ingredients":{
 '''))
 
-        first = True
+        if str('CI_' + compartment) in headers:
+            first = True
 
-        for x in range(1, len(all_data)):  # for each entry in the input .csv
-            if all_data[x][headers['INCLUDE']]:
-                mw = ''  # assuming average human protein size of 320 aa, 110 Da per aa
-                name = ''
-                pdb = ''
-                color = ''
-                if 'NAME' in headers:
-                    name = str(all_data[x][headers['NAME']])
-                if not name:
-                    name = 'Unnamed_ingredient_1'
-                if 'PDB' in headers:
-                    pdb = all_data[x][headers['PDB']]
-                if not pdb:
-                    pdb = 'null'
-                if 'MW' in headers:
-                    mw = all_data[x][headers['MW']]
-                if not mw:
-                    mw = '35200'  # assuming size of 320 aa
-                mw = int(mw)
-                # if 'MOLARITY' in headers:
-                #     molarity = all_data[x][headers['MOLARITY']]
-                # if not molarity:
-                #     molarity = 0
-                if 'COLOR' in headers:
-                    color = all_data[x][headers['COLOR']]
-                if not color:
-                    color = str(random.random()) + ', ' + str(random.random()) + ', ' + str(random.random())
-                molarity = all_data[x][headers[compartment]]
-                if not molarity:
-                    continue
+            for x in range(1, len(all_data)):  # for each entry in the input .csv
+                if all_data[x][headers['INCLUDE']]:
+                    mw = ''  # assuming average human protein size of 320 aa, 110 Da per aa
+                    name = ''
+                    pdb = ''
+                    color = ''
+                    if 'NAME' in headers:
+                        name = str(all_data[x][headers['NAME']])
+                    if not name:
+                        name = 'Unnamed_ingredient_1'
+                    if 'PDB' in headers:
+                        pdb = all_data[x][headers['PDB']]
+                    if not pdb:
+                        pdb = 'null'
+                    if 'MW' in headers:
+                        mw = all_data[x][headers['MW']]
+                    if not mw:
+                        mw = '35200'  # assuming size of 320 aa, MW of 110 per aa
+                    mw = int(mw)
+                    # if 'MOLARITY' in headers:
+                    #     molarity = all_data[x][headers['MOLARITY']]
+                    # if not molarity:
+                    #     molarity = 0
+                    if 'COLOR' in headers:
+                        color = all_data[x][headers['COLOR']]
+                    if not color:
+                        color = str(random.random()) + ', ' + str(random.random()) + ', ' + str(random.random())
+                    molarity = all_data[x][headers[str('CI_' + compartment)]]
+                    if not molarity:
+                        continue
 
-                # pdb = pdb.split("_")[0]  # gets rid of any "_X" after PDB name
-                # if not pdb:
-                #     pdb = 'pdb' + str(x)
-                print('pdb = ' + pdb)
-                if not pdb == 'null' and not os.path.isfile(pdbpath + str(pdb) + '.pdb'):
-                    write_pdbFile(pdb, pdbpath)  # download it to PDB directory
-                if not pdb == 'null' and not os.path.isdir(model_dir + 'PDB/' + pdb):  # if the PDB's specific directory is not already there
-                    os.mkdir(model_dir + 'PDB/' + pdb)
-                    print('making directory for ' + pdb)
-                    if not os.path.isfile(pdbpath + str(pdb) + os.sep + str(pdb) + '.pdb'):
-                        write_pdbFile(pdb, str(pdbpath + pdb + os.sep))  # download it to its directory
-                    # if not newfile:
-                    #     print(pdb + ' NOT FOUND IN PDB')
-                    #     print('NO PDB OR MW - making 320 aa dummy sphere for ' + pdb)
-                    #     continue
-                name = nameFix(name)
-                if not first:  # the first won't be preceeded by a comma. (the last can't have a comma)
-                    recipe.write(str(',\n'))
-                first = False
-                recipe.write(str('     "' + name + '":{\n'))
-                recipe.write(str('      "include":"' + name + '.json",\n'))
-                recipe.write(str('      "name":"' + name + '"\n'))
-                recipe.write(str('     }'))
+                    # pdb = pdb.split("_")[0]  # gets rid of any "_X" after PDB name
+                    # if not pdb:
+                    #     pdb = 'pdb' + str(x)
+                    print('pdb = ' + pdb)
+                    if not pdb == 'null' and not os.path.isfile(pdbpath + str(pdb) + '.pdb'):
+                        write_pdbFile(pdb, pdbpath)  # download it to PDB directory
+                    if not pdb == 'null' and not os.path.isdir(model_dir + 'PDB/' + pdb):  # if the PDB's specific directory is not already there
+                        os.mkdir(model_dir + 'PDB/' + pdb)
+                        print('making directory for ' + pdb)
+                        if not os.path.isfile(pdbpath + str(pdb) + os.sep + str(pdb) + '.pdb'):
+                            write_pdbFile(pdb, str(pdbpath + pdb + os.sep))  # download it to its directory
+                        # if not newfile:
+                        #     print(pdb + ' NOT FOUND IN PDB')
+                        #     print('NO PDB OR MW - making 320 aa dummy sphere for ' + pdb)
+                        #     continue
+                    name = nameFix(name)
+                    if not first:  # the first won't be preceeded by a comma. (the last can't have a comma)
+                        recipe.write(str(',\n'))
+                    first = False
+                    recipe.write(str('     "' + name + '":{\n'))
+                    recipe.write(str('      "include":"' + name + '.json",\n'))
+                    recipe.write(str('      "name":"' + name + '"\n'))
+                    recipe.write(str('     }'))
 
-                writeIngredient(name, pdb, molarity, mw, color)
+                    writeIngredient(name, pdb, molarity, mw, color)
 
         recipe.write(str('\n    }\n'))  # end of ingredients for interior of this compartment
         recipe.write(str('   }\n'))  # end of interior of this compartment
