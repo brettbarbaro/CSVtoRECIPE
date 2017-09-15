@@ -19,12 +19,17 @@ updated 20160816
 # PDBIDs work as names
 #
 # "oldnumeric" folder must be copied from:
-# /Users/mac/Library/Preferences/MAXON/CINEMA 4D R17_89538A46/plugins/ePMV/mgl64/MGLToolsPckgs/numpy/"
+# "/Users/mac/Library/Preferences/MAXON/CINEMA 4D R17_89538A46/plugins/ePMV/mgl64/MGLToolsPckgs/numpy/"
 # to:
 # "/Users/mac/anaconda/lib/python2.7/site-packages/numpy" to get the Collada stuff to work
 #
 #  The "anaconda" python interpreter package should be installed
 #
+#  Must insert MGLToolsPckgs into path (done in sys.path.insert command - location will depend on your computer
+#
+#  Must have the pycollada package installed
+#
+#  bioPython must be installed - in Unix, use "conda install biopython"
 
 
 from Bio.PDB.PDBParser import PDBParser
@@ -49,8 +54,8 @@ sys.path.insert(0, "/Users/mac/Library/Preferences/MAXON/CINEMA 4D R17_89538A46/
 
 print("hello")
 
-csvpath = '/Users/mac/Documents/OLSON/Models/insulin_vesicle/compartment_tests/insulin_vesicle_compartments_15.csv'
-overwrite_ingredients = True
+csvpath = '/Users/mac/Documents/OLSON/Models/Syn1_0_bb/syn1_0_dsgmodel_bb.csv'
+overwrite_ingredients = False
 overwrite_dae_files = False
 
 boundingBox = '[[0,0,0],[0,0,0]]'  # When working with dae-defined compartments, this gets adjusted automatically
@@ -63,12 +68,16 @@ model_dir = head + '/'
 csvname, ext = tail.split('.')
 pdbpath = model_dir + 'PDB' + os.sep
 recipe_name = model_dir + "RECIPE_" + csvname + ".json"
+# global unnamed_ingredient_number
+unnamed_ingredient_number = 1
 
+# import datetime   # optional for timestamp if desired
 # current_time = datetime.datetime.strftime(datetime.datetime.now(), '%H.%M.%S')
 
 # import data from csv file - Brett
 all_data = []
 name_list = [None]
+
 
 with open(csvpath, 'rU') as csvfile:  # need to open the file in Universal mode so it can read Mac Excel output .csv
     spamreader = csv.reader(csvfile)
@@ -76,7 +85,6 @@ with open(csvpath, 'rU') as csvfile:  # need to open the file in Universal mode 
         all_data.append(row)
 
 headers = {'test': 'headers test works'}
-print(headers['test'])
 for num in range(len(all_data[0])):
     headers[all_data[0][num]] = num  # This establishes a dictionary with the header names in it. After this, columns can be indicated with e.g. "name = all_data[x][headers['NAME']]". The headers must be correctly labeled.
 
@@ -185,7 +193,12 @@ def nameFix(name):
     name = name.replace('%', '_')
     name = name.replace('-', '_')
 
-    x = 1  # this routine adds a number to the name if it's been used before - e.g. "unknown protein"
+    if name == 'Unnamed_Ingredient':
+        global unnamed_ingredient_number
+        name = str(name + '_' + str(unnamed_ingredient_number))
+        unnamed_ingredient_number += 1
+
+    x = 1  # this routine adds a number to the name if it's been used before - however, it is better to rename the ingredient in the spreadsheet
     test_name = name
     # noinspection PyUnusedLocal
     for names in name_list:
@@ -198,10 +211,9 @@ def nameFix(name):
     name = test_name
 
     return name
-    # import datetime   # optional for timestamp if desired
 
 
-# given PDB ID and path of folder to store files('C:\\Users\\User\\Desktop\\pdbFiles'), writes PDB file into given location with file name "pdbid.pdb" - this code was written by Jared Truong
+# given PDB ID and path of folder to store files('C:\\Users\\User\\Desktop\\pdbFiles'), writes PDB file into given location with file name "pdbid.pdb"
 def write_pdbFile(pdbid, pdbfilepath):
     print('write_pdbFile')
     data = fetch_pdb(pdbid)
@@ -237,15 +249,14 @@ def buildProxy(name, pdb, cluster_radius, pdbfn, mw, surface=False, overwrite=Fa
     atoms_coord_centerd = []
     R = 0
     # noinspection PyUnusedLocal
-    resolution = -0.1
+    resolution = -0.1  # for making CMS
     # xml = None  # BB not sure what this is for 20170720
     # if not os.path.isfile(model_dir + name + "_cl.indpolvert") or overwrite:
     if not os.path.isfile(pdbfn):
         positions = [[0, 0, 0]]
         R = getRadiusFromMW(mw)
         radii = [[R]]
-        if not os.path.isfile(model_dir + name + '_coarse.dae') or overwrite_dae_files is True:
-            makeSphericalDae(name, R)
+        makeSphericalDae(name, R)
         # proxy = [[0, 0, 0]], [[R]], R, [], [], pdbfn, [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
     else:
         pdb_struct = parser.get_structure(pdb, pdbfn)
@@ -293,18 +304,18 @@ def buildProxy(name, pdb, cluster_radius, pdbfn, mw, surface=False, overwrite=Fa
         positions = centroids.tolist()
         radii = [(np.ones(nProxy) * cluster_radius).tolist(), ]
 
-        saveDejaVuMesh(pdb, [], atoms_coord_centerd)  # writes DejaVu mesh containing locations of all atoms
+        # saveDejaVuMesh(pdb, [], atoms_coord_centerd)  # writes DejaVu mesh containing locations of all atoms
 
     return positions, radii, R, mesh, pdbfn, center, atoms_coord_centerd
 
 
 # noinspection PyUnusedLocal
-def saveDejaVuMesh(pdb, faces, vertices):  # Ludo's code, modified by Brett NOTE: .indpolvert must have at least three lines, because cellPACK is expecting triangles.
-    #    if os.path.isfile(model_dir + pdbid + '.indpolvert'):
-    #        return
-    np.savetxt(model_dir + 'PDB/' + str(pdb) + os.sep + str(pdb) + ".indpolvert", vertices)  # including all atom positions doesn't significantly slow down results
-    np.savetxt(model_dir + 'PDB/' + str(pdb) + os.sep + str(pdb) + ".indpolface", faces)  # this is a dummy file - autopack needs it to read in DejaVu
-
+# def saveDejaVuMesh(pdb, faces, vertices):  # Ludo's code, modified by Brett NOTE: .indpolvert must have at least three lines, because cellPACK is expecting triangles.
+#     #    if os.path.isfile(model_dir + pdbid + '.indpolvert'):
+#     #        return
+#     np.savetxt(model_dir + 'PDB/' + str(pdb) + os.sep + str(pdb) + ".indpolvert", vertices)  # including all atom positions doesn't significantly slow down results
+#     np.savetxt(model_dir + 'PDB/' + str(pdb) + os.sep + str(pdb) + ".indpolface", faces)  # this is a dummy file - autopack needs it to read in DejaVu
+#
 
 # writes a tetrahedral dae file as a proxy for every name
 def makeTetrahedralDae(name, mw):
@@ -478,6 +489,7 @@ def makeIcosahedralDae(name, mw):
 
 
 def makeSphericalDae(name, radius):
+    print(radius)
     print('makeSphericalDae')
 
     dae = open(model_dir + '%s_coarse.dae' % name, 'w')
@@ -559,18 +571,47 @@ def makeSphericalDae(name, radius):
 parser = PDBParser(PERMISSIVE=True, QUIET=True)  # QUIET=True suppresses warnings about PDB files
 
 
-# if not os.path.isdir('dejavus'):
-#    print 'making dejavus directory'
-#    os.mkdir('dejavus')
-#
-# dejavupath = model_dir + 'dejavus' + os.sep
-
-
-def writeIngredient(name, pdb, molarity, mw, color, principalVector='1.0, 0.0, 0.0', offset='0.0, 0.0, 0.0', jitterMax='1,1,1'):
+def writeIngredient(x, name):
     print('write_Ingredient ' + name)
+    mw = ''
+    pdb = ''
+    color = ''
+    principalVector = ''
+    offset = ''
+    jitterMax = ''
+    if 'PDB' in headers:
+        pdb = all_data[x][headers['PDB']]
+    if not pdb:
+        pdb = 'null'
     pdbfn = pdbpath + str(pdb) + '.pdb'
     print(pdbfn)
     print(pdb)
+    if 'MW' in headers:
+        mw = all_data[x][headers['MW']]
+    if not mw:
+        mw = '35200'  # assuming size of 320 aa, MW of 110 per aa
+    if 'COLOR' in headers:
+        color = all_data[x][headers['COLOR']]
+    if not color:
+        color = str(random.random()) + ', ' + str(random.random()) + ', ' + str(random.random())
+    if 'PRINCIPAL_VECTOR' in headers:
+        principalVector = all_data[x][headers['PRINCIPAL_VECTOR']]
+    if not principalVector:
+        principalVector = '1.0, 0.0, 0.0'
+    if 'OFFSET' in headers:
+        offset = all_data[x][headers['OFFSET']]
+    if not offset:
+        offset = '0.0, 0.0, 0.0'
+    if 'JITTER_MAX' in headers:
+        jitterMax = all_data[x][headers['JITTER_MAX']]
+    if not jitterMax:
+        jitterMax = '1.0, 1.0, 1.0'
+    # pdb = pdb.split("_")[0]  # gets rid of any "_X" after PDB name
+    # if not pdb:
+    #     pdb = 'pdb' + str(x)
+    print('pdb = ' + pdb)
+    if not pdb == 'null' and not os.path.isfile(pdbpath + str(pdb) + '.pdb'):
+        write_pdbFile(pdb, pdbpath)  # download it to PDB directory
 
     proxy = buildProxy(name, pdb, tree_sphere_radius, pdbfn, mw, surface=False, overwrite=True)
 
@@ -584,10 +625,6 @@ def writeIngredient(name, pdb, molarity, mw, color, principalVector='1.0, 0.0, 0
     ingredient.write(str('    "partners_position": [],\n'))
     ingredient.write(str('    "weight": 0.20000000000000001,\n'))
     ingredient.write(str('    "color": [' + color + '],\n'))
-    # ingredient.write(str('        ' + str(random.random()) + ',\n'))  # random color
-    # ingredient.write(str('        ' + str(random.random()) + ',\n'))
-    # ingredient.write(str('        ' + str(random.random()) + '\n'))
-    # ingredient.write(str('    ],\n'))
     ingredient.write(str('    "results": [],\n'))
     ingredient.write(str('    "radii": ' + str(proxy[1]) + ',\n'))
     ingredient.write(str('    "cutoff_boundary": null,\n'))
@@ -603,12 +640,12 @@ def writeIngredient(name, pdb, molarity, mw, color, principalVector='1.0, 0.0, 0
     ingredient.write(str('    "packingPriority": 0,\n'))
     ingredient.write(str('    "rotAxis": [\n'))
     ingredient.write(str('        0.0,\n'))
-    ingredient.write(str('        2.0,\n'))
-    ingredient.write(str('        1.0\n'))
+    ingredient.write(str('        0.0,\n'))
+    ingredient.write(str('        0.0\n'))
     ingredient.write(str('    ],\n'))
     ingredient.write(str('    "overwrite_nbMol_value": 0,\n'))
     ingredient.write(str('    "nbJitter": 5,\n'))
-    ingredient.write(str('    "molarity": ' + str(molarity) + ',\n'))
+    ingredient.write(str('    "molarity": 0,\n'))
     ingredient.write(str('    "useOrientBias": false,\n'))
     ingredient.write(str('    "rotRange": 6.2831000000000001,\n'))
     ingredient.write(str('    "coordsystem": "left",\n'))
@@ -637,7 +674,7 @@ def writeIngredient(name, pdb, molarity, mw, color, principalVector='1.0, 0.0, 0
     ingredient.write(str('    },\n'))
     ingredient.write(str('    "use_mesh_rb": false,\n'))
     ingredient.write(str('    "pdb": \"' + pdb + '\",\n'))
-    ingredient.write(str('    "useRotAxis": 1\n'))
+    ingredient.write(str('    "useRotAxis": 0\n'))
     ingredient.write(str('}'))
 
     ingredient.close()
@@ -684,64 +721,27 @@ def writeRecipe():
   "ingredients":{
 '''))
 
-    first = True
+    if 'CYTOPLASM' in headers:
+        first = True
+        for x in range(1, len(all_data)):  # for each entry in the input .csv
+            molarity = all_data[x][headers['CYTOPLASM']]
+            if all_data[x][headers['INCLUDE']] and molarity:
+                if 'NAME' in headers:
+                    name = str(all_data[x][headers['NAME']])
+                if not name:
+                    name = 'Unnamed_Ingredient'
+                name = nameFix(name)
+                if not first:  # the first won't be preceeded by a comma. (the last can't have a comma)
+                    recipe.write(str(',\n'))
+                first = False
+                recipe.write(str('   "' + name + '":{\n'))
+                recipe.write(str('    "include":"' + name + '.json",\n'))
+                recipe.write(str('    "name":"' + name + '",\n'))
+                recipe.write(str('    "overwrite":{"molarity":' + molarity + '}\n'))
+                recipe.write(str('   }'))
 
-    for x in range(1, len(all_data)):  # for each entry in the input .csv
-        if all_data[x][headers['INCLUDE']]:
-            mw = ''  # assuming average human protein size of 320 aa, 110 Da per aa
-            name = ''
-            pdb = ''
-            color = ''
-            if 'NAME' in headers:
-                name = str(all_data[x][headers['NAME']])
-            if not name:
-                name = 'Unnamed_ingredient_1'
-            if 'PDB' in headers:
-                pdb = all_data[x][headers['PDB']]
-            if not pdb:
-                pdb = 'null'
-            if 'MW' in headers:
-                mw = all_data[x][headers['MW']]
-            if not mw:
-                mw = '35200'  # assuming size of 320 aa
-            mw = int(mw)
-            if 'MOLARITY' in headers:
-                molarity = all_data[x][headers['MOLARITY']]
-            if 'CYTOPLASM' in headers:
-                molarity = all_data[x][headers['CYTOPLASM']]
-            if not molarity:
-                continue
-            if 'COLOR' in headers:
-                color = all_data[x][headers['COLOR']]
-            if not color:
-                color = str(random.random()) + ', ' + str(random.random()) + ', ' + str(random.random())
-
-            # pdb = pdb.split("_")[0]  # gets rid of any "_X" after PDB name
-            # if not pdb:
-            #     pdb = 'pdb' + str(x)
-            print('pdb = ' + pdb)
-            if not pdb == 'null' and not os.path.isfile(pdbpath + str(pdb) + '.pdb'):
-                write_pdbFile(pdb, pdbpath)  # download it to PDB directory
-            if not pdb == 'null' and not os.path.isdir(
-                                    model_dir + 'PDB/' + pdb):  # if the PDB's specific directory is not already there
-                os.mkdir(model_dir + 'PDB/' + pdb)
-                print('making directory for ' + pdb)
-                if not os.path.isfile(pdbpath + str(pdb) + os.sep + str(pdb) + '.pdb'):
-                    write_pdbFile(pdb, str(pdbpath + pdb + os.sep))  # download it to its directory
-                    # if not newfile:
-                    #     print(pdb + ' NOT FOUND IN PDB')
-                    #     print('NO PDB OR MW - making 320 aa dummy sphere for ' + pdb)
-                    #     continue
-            name = nameFix(name)
-            if not first:  # the first won't be preceeded by a comma. (the last can't have a comma)
-                recipe.write(str(',\n'))
-            first = False
-            recipe.write(str('   "' + name + '":{\n'))
-            recipe.write(str('    "include":"' + name + '.json",\n'))
-            recipe.write(str('    "name":"' + name + '"\n'))
-            recipe.write(str('   }'))
-
-            writeIngredient(name, pdb, molarity, mw, color)
+                if not os.path.isfile(model_dir + name + '.json') or overwrite_ingredients is True:
+                    writeIngredient(x, name)
 
     recipe.write(str('''
   }
@@ -750,9 +750,10 @@ def writeRecipe():
 
     compartments = []
     for header in headers:
-        if header[0:3] == ('CS_' or 'CI_'):
-            compartments.append(header[3:])  # "[3:]" is so compartment name starts after CX_
-            print(header + ' compartment detected')
+        if header[0:2] == 'S_' or header[0:2] == 'I_':
+            if header[2:] not in compartments:
+                compartments.append(header[2:])  # "[2:]" is so compartment name starts after X_
+                print(header[2:] + ' compartment detected')
     print('compartments total:')
     print(compartments)
 
@@ -773,78 +774,26 @@ def writeRecipe():
 #  FOR SURFACE ELEMENTS
         first = True
 
-        if str('CS_' + compartment) in headers:
+        if str('S_' + compartment) in headers:
             for x in range(1, len(all_data)):  # for each entry in the input .csv
-                if all_data[x][headers['INCLUDE']]:
-                    mw = ''  # assuming average human protein size of 320 aa, 110 Da per aa
-                    name = ''
-                    pdb = ''
-                    color = ''
-                    principalVector = ''
-                    offset = ''
+                molarity = all_data[x][headers[str('S_' + compartment)]]
+                if all_data[x][headers['INCLUDE']] and molarity:
                     if 'NAME' in headers:
                         name = str(all_data[x][headers['NAME']])
                     if not name:
-                        name = 'Unnamed_ingredient_1'
-                    if 'PDB' in headers:
-                        pdb = all_data[x][headers['PDB']]
-                    if not pdb:
-                        pdb = 'null'
-                    if 'MW' in headers:
-                        mw = all_data[x][headers['MW']]
-                    if not mw:
-                        mw = '35200'  # assuming size of 320 aa, MW of 110 per aa
-                    mw = int(mw)
-                    # if 'MOLARITY' in headers:
-                    #     molarity = all_data[x][headers['MOLARITY']]
-                    # if not molarity:
-                    #     molarity = 0
-                    if 'COLOR' in headers:
-                        color = all_data[x][headers['COLOR']]
-                    if not color:
-                        color = str(random.random()) + ', ' + str(random.random()) + ', ' + str(random.random())
-                    molarity = all_data[x][headers[str('CS_' + compartment)]]
-                    if not molarity:
-                        continue
-                    if 'PRINCIPAL_VECTOR' in headers:
-                        principalVector = all_data[x][headers['PRINCIPAL_VECTOR']]
-                    if not principalVector:
-                        principalVector = '1.0, 0.0, 0.0'
-                    if 'OFFSET' in headers:
-                        offset = all_data[x][headers['OFFSET']]
-                    if not offset:
-                        offset = '0.0, 0.0, 0.0'
-                    if 'JITTER_MAX' in headers:
-                        jitterMax = all_data[x][headers['JITTER_MAX']]
-                    if not jitterMax:
-                        jitterMax = '1.0, 1.0, 1.0'
-                    # pdb = pdb.split("_")[0]  # gets rid of any "_X" after PDB name
-                    # if not pdb:
-                    #     pdb = 'pdb' + str(x)
-                    print('pdb = ' + pdb)
-                    if not pdb == 'null' and not os.path.isfile(pdbpath + str(pdb) + '.pdb'):
-                        write_pdbFile(pdb, pdbpath)  # download it to PDB directory
-                    if not pdb == 'null' and not os.path.isdir(model_dir + 'PDB/' + pdb):  # if the PDB's specific directory is not already there
-                        os.mkdir(model_dir + 'PDB/' + pdb)
-                        print('making directory for ' + pdb)
-                        if not os.path.isfile(pdbpath + str(pdb) + os.sep + str(pdb) + '.pdb'):
-                            write_pdbFile(pdb, str(pdbpath + pdb + os.sep))  # download it to its directory
-                        # if not newfile:
-                        #     print(pdb + ' NOT FOUND IN PDB')
-                        #     print('NO PDB OR MW - making 320 aa dummy sphere for ' + pdb)
-                        #     continue
+                        name = 'Unnamed_Ingredient'
                     name = nameFix(name)
                     if not first:  # the first won't be preceeded by a comma. (the last can't have a comma)
                         recipe.write(str(',\n'))
                     first = False
                     recipe.write(str('     "' + name + '":{\n'))
                     recipe.write(str('      "include":"' + name + '.json",\n'))
-                    recipe.write(str('      "name":"' + name + '"\n'))
+                    recipe.write(str('      "name":"' + name + '",\n'))
+                    recipe.write(str('      "overwrite":{"molarity":' + molarity + '}\n'))
                     recipe.write(str('     }'))
 
-                    print('OFFSET = ' + offset)
-
-                    writeIngredient(name, pdb, molarity, mw, color, principalVector, offset, jitterMax)
+                    if not os.path.isfile(model_dir + name + '.json') or overwrite_ingredients is True:
+                        writeIngredient(x, name)
 
         recipe.write(str('\n    }\n'))  # end of ingredients for surface of this compartment
         recipe.write(str('   },'))  # end of surface of this compartment
@@ -854,65 +803,28 @@ def writeRecipe():
     "ingredients":{
 '''))
 
-        if str('CI_' + compartment) in headers:
+        if str('I_' + compartment) in headers:
             first = True
 
             for x in range(1, len(all_data)):  # for each entry in the input .csv
-                if all_data[x][headers['INCLUDE']]:
-                    mw = ''  # assuming average human protein size of 320 aa, 110 Da per aa
-                    name = ''
-                    pdb = ''
-                    color = ''
+                molarity = all_data[x][headers[str('I_' + compartment)]]
+                if all_data[x][headers['INCLUDE']] and molarity:
                     if 'NAME' in headers:
                         name = str(all_data[x][headers['NAME']])
                     if not name:
-                        name = 'Unnamed_ingredient_1'
-                    if 'PDB' in headers:
-                        pdb = all_data[x][headers['PDB']]
-                    if not pdb:
-                        pdb = 'null'
-                    if 'MW' in headers:
-                        mw = all_data[x][headers['MW']]
-                    if not mw:
-                        mw = '35200'  # assuming size of 320 aa, MW of 110 per aa
-                    mw = int(mw)
-                    # if 'MOLARITY' in headers:
-                    #     molarity = all_data[x][headers['MOLARITY']]
-                    # if not molarity:
-                    #     molarity = 0
-                    if 'COLOR' in headers:
-                        color = all_data[x][headers['COLOR']]
-                    if not color:
-                        color = str(random.random()) + ', ' + str(random.random()) + ', ' + str(random.random())
-                    molarity = all_data[x][headers[str('CI_' + compartment)]]
-                    if not molarity:
-                        continue
-
-                    # pdb = pdb.split("_")[0]  # gets rid of any "_X" after PDB name
-                    # if not pdb:
-                    #     pdb = 'pdb' + str(x)
-                    print('pdb = ' + pdb)
-                    if not pdb == 'null' and not os.path.isfile(pdbpath + str(pdb) + '.pdb'):
-                        write_pdbFile(pdb, pdbpath)  # download it to PDB directory
-                    if not pdb == 'null' and not os.path.isdir(model_dir + 'PDB/' + pdb):  # if the PDB's specific directory is not already there
-                        os.mkdir(model_dir + 'PDB/' + pdb)
-                        print('making directory for ' + pdb)
-                        if not os.path.isfile(pdbpath + str(pdb) + os.sep + str(pdb) + '.pdb'):
-                            write_pdbFile(pdb, str(pdbpath + pdb + os.sep))  # download it to its directory
-                        # if not newfile:
-                        #     print(pdb + ' NOT FOUND IN PDB')
-                        #     print('NO PDB OR MW - making 320 aa dummy sphere for ' + pdb)
-                        #     continue
+                        name = 'Unnamed_Ingredient'
                     name = nameFix(name)
                     if not first:  # the first won't be preceeded by a comma. (the last can't have a comma)
                         recipe.write(str(',\n'))
                     first = False
                     recipe.write(str('     "' + name + '":{\n'))
                     recipe.write(str('      "include":"' + name + '.json",\n'))
-                    recipe.write(str('      "name":"' + name + '"\n'))
+                    recipe.write(str('      "name":"' + name + '",\n'))
+                    recipe.write(str('      "overwrite":{"molarity":' + molarity + '}\n'))
                     recipe.write(str('     }'))
 
-                    writeIngredient(name, pdb, molarity, mw, color)
+                    if not os.path.isfile(model_dir + name + '.json') or overwrite_ingredients is True:
+                        writeIngredient(x, name)
 
         recipe.write(str('\n    }\n'))  # end of ingredients for interior of this compartment
         recipe.write(str('   }\n'))  # end of interior of this compartment
