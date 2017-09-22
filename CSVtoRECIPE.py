@@ -54,9 +54,11 @@ sys.path.insert(0, "/Users/mac/Library/Preferences/MAXON/CINEMA 4D R17_89538A46/
 
 print("hello")
 
-csvpath = '/Users/mac/Documents/OLSON/Models/Syn1_0_bb/syn1_0_dsgmodel_bb.csv'
-overwrite_ingredients = False
-overwrite_dae_files = False
+csvpath = '/Users/mac/Documents/OLSON/Models/Syn1_0_bb/syn1_0_surface2_SCALED.csv'
+overwrite_ingredients = True
+overwrite_dae_files = True
+print('overwrite_ingredients = ' + str(overwrite_ingredients))
+print('overwrite_dae_files = ' + str(overwrite_dae_files))
 
 boundingBox = '[[0,0,0],[0,0,0]]'  # When working with dae-defined compartments, this gets adjusted automatically
 tree_sphere_radius = 10  # radius of spheres in spheretree clustered model (min: 5) - doesn't work if it's too small (e.g. nothing lower than 5 worked when I tried it); too big is also not good because it becomes low resolution
@@ -217,8 +219,8 @@ def nameFix(name):
 def write_pdbFile(pdbid, pdbfilepath):
     print('write_pdbFile')
     data = fetch_pdb(pdbid)
-    print('len(data) = ' + str(len(data)))
-    if len(data) > 500:  # 20170801 pdb has started returning short files, ~250 bytes, when a file is not found. This skips those.
+    print('data[0] = ' + data[0])
+    if data[0] is not '<':  # 20170922 If it returns a legit pdb file, it starts with text. Errors start with html markup.
         pdbfile = open(str(pdbfilepath) + str(pdbid) + '.pdb', 'w')
         pdbfile.write(data)
         pdbfile.close()
@@ -230,7 +232,7 @@ def write_pdbFile(pdbid, pdbfilepath):
 # given PDB ID returns PDB file information - this code was written by Jared Truong
 def fetch_pdb(pdbid):
     print('fetching PDB file')
-    url = 'http://www.rcsb.org/pdb/files/%s.pdb' % pdbid.upper()
+    url = 'http://www.rcsb.org/pdb/files/%s.pdb' % pdbid
     return urllib.urlopen(url).read()
 
 
@@ -583,9 +585,8 @@ def writeIngredient(x, name):
         pdb = all_data[x][headers['PDB']]
     if not pdb:
         pdb = 'null'
+    print('pdb = ' + pdb)
     pdbfn = pdbpath + str(pdb) + '.pdb'
-    print(pdbfn)
-    print(pdb)
     if 'MW' in headers:
         mw = all_data[x][headers['MW']]
     if not mw:
@@ -609,9 +610,11 @@ def writeIngredient(x, name):
     # pdb = pdb.split("_")[0]  # gets rid of any "_X" after PDB name
     # if not pdb:
     #     pdb = 'pdb' + str(x)
-    print('pdb = ' + pdb)
     if not pdb == 'null' and not os.path.isfile(pdbpath + str(pdb) + '.pdb'):
-        write_pdbFile(pdb, pdbpath)  # download it to PDB directory
+        x = write_pdbFile(pdb, pdbpath)  # attempt to download it to PDB directory
+        if not x:
+            print(pdb + ' NOT FOUND')
+            pdb = 'null'
 
     proxy = buildProxy(name, pdb, tree_sphere_radius, pdbfn, mw, surface=False, overwrite=True)
 
